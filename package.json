@@ -4,10 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Workaround student prototype: see which jobs fit your real week before you apply.",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
+    "predev": "node scripts/check-setup.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
+    "prepreview": "node scripts/check-setup.mjs",
+    "preview": "vite build && vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

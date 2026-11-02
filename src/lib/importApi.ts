@@ -6,6 +6,8 @@ export interface ImportStatus {
   configured: boolean;
   /** False when no endpoint answered at all (e.g. a static build with no server). */
   reachable: boolean;
+  /** Why upload can't be used right now (from the local server), or null. */
+  message: string | null;
 }
 
 export class ImportError extends Error {
@@ -21,11 +23,11 @@ export class ImportError extends Error {
 export async function getImportStatus(): Promise<ImportStatus> {
   try {
     const res = await fetch('/api/schedule-import/status', { headers: { accept: 'application/json' } });
-    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return { configured: false, reachable: false };
-    const body = (await res.json()) as { configured?: boolean };
-    return { configured: !!body.configured, reachable: true };
+    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return { configured: false, reachable: false, message: null };
+    const body = (await res.json()) as { configured?: boolean; message?: string | null };
+    return { configured: !!body.configured, reachable: true, message: body.message ?? null };
   } catch {
-    return { configured: false, reachable: false };
+    return { configured: false, reachable: false, message: null };
   }
 }
 

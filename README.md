@@ -13,7 +13,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm test           # matching, import and endpoint tests (includes the video scenario)
 npm run build      # static site in dist/
-npm run preview    # serve dist/ locally (schedule upload works here too)
+npm run preview    # build, then serve the result locally (schedule upload works here too)
 ```
 
 Everything works without an API key except reading uploaded schedules (see below). `dist/` is a static site with hash routes and relative paths. Nothing has been deployed.
@@ -35,6 +35,14 @@ Students can upload a **PDF, screenshot or photo** of their class schedule. Clau
 - **Privacy:** the file goes to Anthropic's API to be read. Workaround doesn't store or log it. Only availability windows, never class details, are shown to employers.
 - **Limits:** PDF, PNG, JPEG, WEBP or GIF up to 10 MB. Large photos are downscaled in the browser first. iPhone HEIC photos must be saved as JPEG or screenshotted. The endpoint allows 20 uploads per 10 minutes per computer.
 - **Accuracy:** uncertain rows are highlighted with "Check this", and times are never guessed. Students always confirm before matching.
+
+### If upload isn't working
+
+1. **Read the terminal** where `npm run dev` is running. On start it prints either `✓ Schedule upload is ON` or `✗ Schedule upload is OFF` with the reason (no file, empty key, wrong name, wrong folder, key rejected by Anthropic, model not available to the key). The upload box in the app shows the same reason.
+2. **After pulling new code, run `npm install`.** New packages were added for this feature. `npm run dev` now stops with a clear message if any are missing or if Node is older than 20.19.
+3. **`.env.local` goes next to `package.json`**, named exactly `.env.local` (watch for a hidden `.txt` ending on Windows), with the key on one line: `ANTHROPIC_API_KEY=sk-ant-...`. Files saved as UTF-16 or with a BOM (PowerShell, Notepad) are fine now.
+4. **Restart** `npm run dev` after editing `.env.local`.
+5. **`npm run preview` showed 404 for every page** because it serves the last build and there wasn't one. It now builds first.
 
 ## What's in the first build
 

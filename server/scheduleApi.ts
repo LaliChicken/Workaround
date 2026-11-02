@@ -1,12 +1,19 @@
-import { SCHEDULE_MODEL, ScheduleParseError, SUPPORTED_TYPES, type ParseResult, type SupportedType } from './scheduleParser';
+import { SCHEDULE_MODEL, ScheduleParseError, SUPPORTED_TYPES, type ParseResult, type SupportedType } from './scheduleParser.ts';
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const STATUS_PATH = '/api/schedule-import/status';
 export const IMPORT_PATH = '/api/schedule-import';
 
-export interface ScheduleHandlerOptions {
-  /** True when an API key is available. */
+export interface ReaderStatus {
+  /** True when an API key was found. */
   configured: boolean;
+  /** Human-readable reason the reader can't be used, or null when it can. */
+  message: string | null;
+}
+
+export interface ScheduleHandlerOptions {
+  /** Current reader status; may change once the startup key check finishes. */
+  status: () => ReaderStatus;
   parse: (file: { data: Uint8Array; mediaType: SupportedType }) => Promise<ParseResult>;
   rateLimit?: { max: number; windowMs: number };
   now?: () => number;
@@ -23,6 +30,8 @@ const STATUS_FOR: Record<ScheduleParseError['code'], number> = {
   unreadable: 422,
   rate_limited: 429,
   auth: 503,
+  model_unavailable: 503,
+  network: 502,
   upstream: 502,
 };
 
@@ -41,13 +50,19 @@ export function createScheduleHandler(options: ScheduleHandlerOptions) {
 
     if (pathname === STATUS_PATH) {
       if (request.method !== 'GET') return fail(405, 'method_not_allowed', 'Use GET.');
-      return json(200, { configured: options.configured, model: SCHEDULE_MODEL, maxBytes: MAX_UPLOAD_BYTES, types: SUPPORTED_TYPES });
+      const { configured, message } = options.status();
+      return json(200, { configured, message, model: SCHEDULE_MODEL, maxBytes: MAX_UPLOAD_BYTES, types: SUPPORTED_TYPES });
     }
     if (pathname !== IMPORT_PATH) return null;
     if (request.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST with the file as the request body.');
 
-    if (!options.configured) {
-      return fail(503, 'not_configured', 'Schedule reading isn’t set up on this computer. Add ANTHROPIC_API_KEY to .env.local and restart the app.');
+    const status = options.status();
+    if (!status.configured || status.message) {
+      return fail(
+        503,
+        status.configured ? 'key_problem' : 'not_configured',
+        status.message ?? 'Schedule reading isn’t set up on this computer. Add ANTHROPIC_API_KEY to .env.local and restart the app.',
+      );
     }
 
     const recent = (hits.get(clientId) ?? []).filter((t) => now() - t < windowMs);

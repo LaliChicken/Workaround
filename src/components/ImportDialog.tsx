@@ -67,7 +67,7 @@ export function ImportDialog({
     };
   }, []);
 
-  const uploadReady = status?.configured === true;
+  const uploadReady = status?.configured === true && !status.message;
 
   const useSample = () => {
     setSource('sample');
@@ -184,9 +184,9 @@ export function ImportDialog({
                   ? 'Checking the schedule reader…'
                   : uploadReady
                     ? 'PDF, screenshot or photo (PNG, JPEG, WEBP) · up to 10 MB'
-                    : status.reachable
-                      ? 'Schedule reading isn’t set up on this computer yet (no API key). See the README.'
-                      : 'Schedule reading needs the app’s local server. Start it with npm run dev.'}
+                    : !status.reachable
+                      ? 'Schedule reading needs the app’s local server. Start it with npm run dev.'
+                      : (status.message ?? 'Schedule reading isn’t set up on this computer yet. See the README.')}
               </span>
             </label>
             {error && (
