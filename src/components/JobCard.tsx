@@ -23,7 +23,7 @@ export function SaveButton({ job, withLabel = false }: { job: Job; withLabel?: b
   );
 }
 
-export function JobCard({ job, match, selected, changed }: { job: Job; match: Match; selected: boolean; changed: boolean }) {
+export function JobCard({ job, match, distance, selected, changed }: { job: Job; match: Match; distance: number; selected: boolean; changed: boolean }) {
   const tone = STATE_META[match.state].tone;
   return (
     <article className={`job-card${selected ? ' is-selected' : ''}${changed ? ' is-changed' : ''}`}>
@@ -41,7 +41,7 @@ export function JobCard({ job, match, selected, changed }: { job: Job; match: Ma
         <span className="dot" aria-hidden="true">
           ·
         </span>
-        <MapPin size={14} aria-hidden="true" /> {job.area}, {job.distanceMi} mi
+        <MapPin size={14} aria-hidden="true" /> {job.area}, about {distance} mi
       </p>
       <p className="job-card-meta">
         <strong>{payLabel(job)}</strong>

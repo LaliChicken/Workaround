@@ -1,11 +1,21 @@
 import { BadgeCheck, FileText, MessageSquare, RotateCcw, Trash } from 'lucide-react';
 import { useEffect, useId } from 'react';
+import { RADIUS_OPTIONS, SEARCH_AREAS } from '../data/areas';
 import { CATEGORY_LABEL } from '../data/jobs';
+import { AGE_LABEL, STAGE_LABEL, studentSummary } from '../lib/eligibility';
 import { href } from '../lib/router';
-import type { Category } from '../lib/types';
+import type { AgeBand, Category, StudentStage } from '../lib/types';
 import { DEMO_PROFILE, type Profile, useStore } from '../state/store';
 
 export const SCHOOLS = ['Foothill College', 'De Anza College', 'Another community college', 'A high school'];
+
+const STAGE_OPTIONS: [StudentStage, string][] = [
+  ['college', STAGE_LABEL.college],
+  ['dual-enrollment', 'High school student taking college classes (dual enrollment)'],
+  ['high-school', STAGE_LABEL['high-school']],
+];
+
+const AGE_OPTIONS: AgeBand[] = ['under-16', '16-17', '18+', 'unknown'];
 
 export function ProfileView() {
   const { state, updateProfile } = useStore();
@@ -27,7 +37,7 @@ export function ProfileView() {
             {p.firstName} {p.lastName}
           </h1>
           <p className="page-sub">
-            {p.school} · {p.stage === 'college' ? 'College undergraduate' : 'High school student'}
+            {studentSummary(p)}
           </p>
         </div>
       </header>
@@ -135,7 +145,7 @@ export function StudentFields({ profile: p, onChange }: { profile: Profile; onCh
           id={`${uid}-school`}
           className="input"
           value={p.school}
-          onChange={(e) => onChange({ school: e.target.value, ...(e.target.value === 'A high school' ? { stage: 'high-school' } : {}) })}
+          onChange={(e) => onChange({ school: e.target.value })}
         >
           {SCHOOLS.map((s) => (
             <option key={s}>{s}</option>
@@ -144,33 +154,27 @@ export function StudentFields({ profile: p, onChange }: { profile: Profile; onCh
       </div>
       <fieldset className="field">
         <legend className="label">I’m a</legend>
-        <div className="radio-row">
-          <label className="radio">
-            <input type="radio" name={`${uid}-stage`} checked={p.stage === 'college'} onChange={() => onChange({ stage: 'college', ageBand: '18+' })} />
-            College undergraduate
-          </label>
-          <label className="radio">
-            <input type="radio" name={`${uid}-stage`} checked={p.stage === 'high-school'} onChange={() => onChange({ stage: 'high-school' })} />
-            High school student
-          </label>
+        <div className="radio-col">
+          {STAGE_OPTIONS.map(([value, label]) => (
+            <label key={value} className="radio">
+              <input type="radio" name={`${uid}-stage`} checked={p.stage === value} onChange={() => onChange({ stage: value })} />
+              {label}
+            </label>
+          ))}
         </div>
       </fieldset>
-      {p.stage === 'high-school' && (
-        <fieldset className="field">
-          <legend className="label">Age</legend>
-          <div className="radio-row">
-            <label className="radio">
-              <input type="radio" name={`${uid}-age`} checked={p.ageBand === '16-17'} onChange={() => onChange({ ageBand: '16-17' })} />
-              16–17
+      <fieldset className="field">
+        <legend className="label">Your age</legend>
+        <div className="radio-row">
+          {AGE_OPTIONS.map((value) => (
+            <label key={value} className="radio">
+              <input type="radio" name={`${uid}-age`} checked={p.ageBand === value} onChange={() => onChange({ ageBand: value })} />
+              {AGE_LABEL[value]}
             </label>
-            <label className="radio">
-              <input type="radio" name={`${uid}-age`} checked={p.ageBand === '18+'} onChange={() => onChange({ ageBand: '18+' })} />
-              18 or older
-            </label>
-          </div>
-          <p className="hint">We ask because work permits and permitted hours depend on age. Employers confirm eligibility.</p>
-        </fieldset>
-      )}
+          ))}
+        </div>
+        <p className="hint">We ask because some jobs, work permits and permitted hours depend on age. Employers confirm eligibility.</p>
+      </fieldset>
     </>
   );
 }
@@ -186,14 +190,20 @@ export function SearchFields({ profile: p, onChange }: { profile: Profile; onCha
           <label className="label" htmlFor={`${uid}-area`}>
             Where you want to work
           </label>
-          <input id={`${uid}-area`} className="input" value={p.area} onChange={(e) => onChange({ area: e.target.value })} />
+          <select id={`${uid}-area`} className="input" value={p.areaId} onChange={(e) => onChange({ areaId: e.target.value })}>
+            {SEARCH_AREAS.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field field-narrow">
           <label className="label" htmlFor={`${uid}-radius`}>
             Within
           </label>
           <select id={`${uid}-radius`} className="input" value={p.radiusMi} onChange={(e) => onChange({ radiusMi: Number(e.target.value) })}>
-            {[2, 5, 10, 15].map((r) => (
+            {RADIUS_OPTIONS.map((r) => (
               <option key={r} value={r}>
                 {r} miles
               </option>
@@ -201,7 +211,7 @@ export function SearchFields({ profile: p, onChange }: { profile: Profile; onCha
           </select>
         </div>
       </div>
-      <p className="hint hint-tight">An approximate area is enough. We don’t need your home address to show jobs.</p>
+      <p className="hint hint-tight">An approximate area is enough; we never ask for your home address. Distances are straight-line estimates.</p>
       <fieldset className="field">
         <legend className="label">Hours a week you’d like</legend>
         <div className="hours-range">

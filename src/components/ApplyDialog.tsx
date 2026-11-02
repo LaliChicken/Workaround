@@ -1,6 +1,7 @@
 import { CircleAlert, CircleCheck, FileText, FlaskConical, Lock, Send } from 'lucide-react';
 import { useId, useState } from 'react';
 import { href, navigate } from '../lib/router';
+import { studentSummary } from '../lib/eligibility';
 import { isConflict } from '../lib/matching';
 import type { Job } from '../lib/types';
 import { sharedAvailability, useStore } from '../state/store';
@@ -18,7 +19,6 @@ export function ApplyDialog({ job, onClose }: { job: Job; onClose: () => void })
   const windows = sharedAvailability(schedule);
   const resumeRequired = job.resume === 'required';
   const blocked = resumeRequired && (!profile.resumeName || !attach);
-  const stage = profile.stage === 'college' ? 'College undergraduate' : `High school student, ${profile.ageBand === '16-17' ? '16–17' : '18+'}`;
 
   if (step === 'done') {
     return (
@@ -116,7 +116,7 @@ export function ApplyDialog({ job, onClose }: { job: Job; onClose: () => void })
         <div>
           <dt>School</dt>
           <dd>
-            {profile.school} · {stage}
+            {studentSummary(profile)}
           </dd>
         </div>
         <div>

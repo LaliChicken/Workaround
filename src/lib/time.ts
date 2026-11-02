@@ -65,6 +65,15 @@ export function timeOptions(fromHour = 6, toHour = 23): Minutes[] {
   return out;
 }
 
+/**
+ * Time options that always contain `value`, so a select never shows the wrong
+ * time for off-grid class times such as 11:20 am or 9:50 am.
+ */
+export function optionsIncluding(options: Minutes[], ...values: Minutes[]): Minutes[] {
+  const extra = values.filter((v) => Number.isFinite(v) && !options.includes(v));
+  return extra.length ? [...options, ...extra].sort((a, b) => a - b) : options;
+}
+
 export function formatDate(iso: string, opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }): string {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return iso;

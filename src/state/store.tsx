@@ -1,19 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { DEFAULT_AREA_ID, SEARCH_AREAS } from '../data/areas';
 import { JOBS } from '../data/jobs';
 import { sampleSchedule } from '../data/sampleSchedule';
 import { DEFAULT_FILTERS, type JobFilters } from '../lib/jobs';
 import { evaluateAll, weeklyWindows } from '../lib/matching';
 import { DAY_SHORT, formatRange } from '../lib/time';
-import type { Category, Match, MatchState, Schedule } from '../lib/types';
+import type { AgeBand, Category, Match, MatchState, Schedule, StudentStage } from '../lib/types';
 
 export interface Profile {
   firstName: string;
   lastName: string;
   school: string;
-  stage: 'college' | 'high-school';
-  ageBand: '16-17' | '18+';
-  /** Approximate search area; never a home address. */
-  area: string;
+  stage: StudentStage;
+  /** Asked separately from stage: dual-enrollment and younger college students exist. */
+  ageBand: AgeBand;
+  /** Approximate search area (see data/areas.ts); never a home address. */
+  areaId: string;
+  /** The single distance setting: drives job results and the Jobs distance filter. */
   radiusMi: number;
   hoursMin: number;
   hoursMax: number;
@@ -54,7 +57,7 @@ export const DEMO_PROFILE: Profile = {
   school: 'Foothill College',
   stage: 'college',
   ageBand: '18+',
-  area: 'Near Foothill College',
+  areaId: DEFAULT_AREA_ID,
   radiusMi: 10,
   hoursMin: 8,
   hoursMax: 16,
@@ -114,13 +117,35 @@ function reducer(state: AppState, action: Action): AppState {
 
 const STORAGE_KEY = 'workaround-demo-v1';
 
+const STAGES: StudentStage[] = ['college', 'dual-enrollment', 'high-school'];
+const AGE_BANDS: AgeBand[] = ['under-16', '16-17', '18+', 'unknown'];
+
+/** Brings profiles saved by earlier versions of the prototype up to date. */
+export function normaliseProfile(saved: Partial<Profile> & { area?: unknown }): Profile {
+  const p: Profile = { ...DEMO_PROFILE, ...saved };
+  delete (p as { area?: unknown }).area;
+  if (!STAGES.includes(p.stage)) p.stage = 'college';
+  if (!AGE_BANDS.includes(p.ageBand)) p.ageBand = 'unknown';
+  if (!SEARCH_AREAS.some((a) => a.id === p.areaId)) p.areaId = DEFAULT_AREA_ID;
+  if (!(p.radiusMi > 0)) p.radiusMi = DEMO_PROFILE.radiusMi;
+  return p;
+}
+
+function normaliseFilters(saved: Partial<JobFilters> | undefined): JobFilters {
+  const f: JobFilters = { ...DEFAULT_FILTERS };
+  for (const key of Object.keys(DEFAULT_FILTERS) as (keyof JobFilters)[]) {
+    if (saved && saved[key] !== undefined) (f as unknown as Record<string, unknown>)[key] = saved[key];
+  }
+  return f;
+}
+
 function load(): AppState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
       if (parsed?.version === 1 && parsed.schedule?.blocks && parsed.profile) {
-        return { ...initialState(), ...parsed, filters: { ...DEFAULT_FILTERS, ...parsed.filters } };
+        return { ...initialState(), ...parsed, profile: normaliseProfile(parsed.profile), filters: normaliseFilters(parsed.filters) };
       }
     }
   } catch {

@@ -1,12 +1,13 @@
 import { ArrowRight, CalendarClock, CircleCheck, Undo2, X } from 'lucide-react';
 import { useEffect } from 'react';
 import { jobById } from '../data/jobs';
+import { isConflict } from '../lib/matching';
 import { href } from '../lib/router';
 import { useStore, type Toast } from '../state/store';
 import { STATE_META } from './ui';
 
 function ToastItem({ toast }: { toast: Toast }) {
-  const { dismissToast, changeSchedule } = useStore();
+  const { dismissToast, changeSchedule, setFilters } = useStore();
   const hasChanges = !!toast.changes?.length;
 
   useEffect(() => {
@@ -29,7 +30,14 @@ function ToastItem({ toast }: { toast: Toast }) {
               const to = STATE_META[c.to];
               return (
                 <li key={c.jobId}>
-                  <a href={href(`/jobs/${c.jobId}`)} onClick={() => dismissToast(toast.id)}>
+                  <a
+                    href={href(`/jobs/${c.jobId}`)}
+                    onClick={() => {
+                      dismissToast(toast.id);
+                      // A job that now conflicts would be hidden; show conflicts so it stays in the list.
+                      if (isConflict(c.to)) setFilters({ showConflicts: true });
+                    }}
+                  >
                     <strong>{job.role}</strong> · {job.business}
                   </a>
                   <span className="toast-change">

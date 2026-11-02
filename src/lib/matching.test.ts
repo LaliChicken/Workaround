@@ -3,6 +3,7 @@ import { JOBS, jobById } from '../data/jobs';
 import { sampleSchedule } from '../data/sampleSchedule';
 import { covers } from './intervals';
 import { checkShift, evaluateAll, evaluateJob, workableMinutes, workableWindows } from './matching';
+import { jobDistances } from './geo';
 import { jobHours, partitionJobs, DEFAULT_FILTERS } from './jobs';
 import { formatRange, formatTime, formatTimeWords, toMinutes as t } from './time';
 import type { Day, Job, Schedule, ScheduleBlock } from './types';
@@ -114,9 +115,12 @@ describe('matching states for the sample dataset', () => {
   });
 
   it('hides conflicts by default and counts them', () => {
-    const { visible, hiddenConflicts } = partitionJobs(JOBS, DEFAULT_FILTERS, { matches, hoursMin: 8, hoursMax: 16 });
+    const distances = jobDistances(JOBS, 'foothill');
+    const { visible, hiddenConflicts } = partitionJobs(JOBS, DEFAULT_FILTERS, { matches, hoursMin: 8, hoursMax: 16, distances, radiusMi: 10 });
     expect(hiddenConflicts).toBe(4);
     expect(visible.map((j) => matches[j.id].state)).toEqual(['fits', 'fits', 'fits', 'optional', 'confirm', 'confirm']);
+    // Opening A leads the default list for the video.
+    expect(visible[0].id).toBe('hillside-barista');
   });
 });
 

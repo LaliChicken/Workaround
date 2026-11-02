@@ -1,7 +1,7 @@
 import { CircleAlert, FileText, Trash, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { SAMPLE_CLASSES } from '../data/sampleSchedule';
-import { DAYS, DAY_LONG, formatTime, timeOptions } from '../lib/time';
+import { DAYS, DAY_LONG, formatTime, optionsIncluding, timeOptions } from '../lib/time';
 import type { Day, ScheduleBlock } from '../lib/types';
 import { Dialog } from './ui';
 
@@ -118,7 +118,7 @@ export function ImportDialog({
             </span>
             <span role="cell">
               <select className="input input-sm" aria-label={`${r.title} start time`} value={r.start} onChange={(e) => update(r.id, { start: Number(e.target.value) })}>
-                {TIMES.map((t) => (
+                {optionsIncluding(TIMES, r.start).map((t) => (
                   <option key={t} value={t}>
                     {formatTime(t)}
                   </option>
@@ -127,7 +127,7 @@ export function ImportDialog({
             </span>
             <span role="cell">
               <select className="input input-sm" aria-label={`${r.title} end time`} value={r.end} onChange={(e) => update(r.id, { end: Number(e.target.value) })}>
-                {TIMES.map((t) => (
+                {optionsIncluding(TIMES, r.end).map((t) => (
                   <option key={t} value={t}>
                     {formatTime(t)}
                   </option>

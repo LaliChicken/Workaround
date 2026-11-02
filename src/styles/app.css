@@ -769,6 +769,11 @@ select.input-sm {
   gap: 8px 20px;
 }
 
+.radio-col {
+  display: grid;
+  gap: 8px;
+}
+
 .radio,
 .check {
   display: inline-flex;
@@ -1959,6 +1964,40 @@ select.input-sm {
   justify-self: start;
 }
 
+.hidden-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 20px 28px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius);
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  font-size: 14px;
+}
+
+.hidden-banner p {
+  flex: 1 1 260px;
+}
+
+.page-job .hidden-banner {
+  margin: 0 0 16px;
+}
+
+.distance-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.distance-of {
+  color: var(--text-3);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .jobs-detail {
   position: sticky;
   top: calc(var(--topbar-h) + 16px);
@@ -2941,6 +2980,11 @@ select.input-sm {
   }
   .filter-bar .input-sm {
     flex: 1 1 140px;
+    min-width: 0;
+  }
+  .distance-control {
+    flex: 1 1 100%;
+    min-width: 0;
   }
   .field-row,
   .field-row:has(.field-narrow),

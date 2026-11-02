@@ -1,6 +1,6 @@
 import { Trash } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
-import { DAYS, DAY_LONG, DAY_SHORT, formatRange, formatTime, timeOptions } from '../lib/time';
+import { DAYS, DAY_LONG, DAY_SHORT, formatRange, formatTime, optionsIncluding, timeOptions } from '../lib/time';
 import type { BlockKind, Day, ScheduleBlock } from '../lib/types';
 import { useStore } from '../state/store';
 import { Dialog } from './ui';
@@ -204,7 +204,7 @@ export function BlockEditor({ target, onClose }: { target: EditorTarget; onClose
               Starts
             </label>
             <select id={`${uid}-start`} className="input" value={form.start} onChange={(e) => set({ start: Number(e.target.value) })}>
-              {TIMES.slice(0, -1).map((t) => (
+              {optionsIncluding(TIMES.slice(0, -1), form.start).map((t) => (
                 <option key={t} value={t}>
                   {formatTime(t)}
                 </option>
@@ -216,7 +216,7 @@ export function BlockEditor({ target, onClose }: { target: EditorTarget; onClose
               Ends
             </label>
             <select id={`${uid}-end`} className="input" value={form.end} onChange={(e) => set({ end: Number(e.target.value) })}>
-              {TIMES.slice(1).map((t) => (
+              {optionsIncluding(TIMES.slice(1), form.end).map((t) => (
                 <option key={t} value={t}>
                   {formatTime(t)}
                 </option>

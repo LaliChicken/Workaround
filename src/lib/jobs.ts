@@ -60,7 +60,6 @@ function dayRun(days: Day[]): string {
 
 export interface JobFilters {
   minPay: number;
-  maxDistance: number;
   withinHours: boolean;
   noExperience: boolean;
   categories: Category[];
@@ -70,7 +69,6 @@ export interface JobFilters {
 
 export const DEFAULT_FILTERS: JobFilters = {
   minPay: 0,
-  maxDistance: 0,
   withinHours: false,
   noExperience: false,
   categories: [],
@@ -82,12 +80,18 @@ export interface FilterContext {
   matches: Record<string, Match>;
   hoursMin: number;
   hoursMax: number;
+  /** Straight-line distance from the student's search area, by job id. */
+  distances: Record<string, number>;
+  /** The profile's search radius; the only distance control. */
+  radiusMi: number;
 }
 
-/** Applies every filter except the compatibility toggle. */
+/** True when any filter other than distance and the conflicts toggle is active. */
+export const hasActiveFilters = (f: JobFilters) => Boolean(f.minPay || f.withinHours || f.noExperience || f.categories.length);
+
+/** Pay, hours, experience and category filters. */
 export function passesFilters(job: Job, f: JobFilters, ctx: FilterContext): boolean {
   if (f.minPay && (job.pay.max ?? job.pay.min) < f.minPay) return false;
-  if (f.maxDistance && job.distanceMi > f.maxDistance) return false;
   if (f.noExperience && job.experience === 'required') return false;
   if (f.categories.length && !f.categories.includes(job.category)) return false;
   if (f.withinHours) {
@@ -97,9 +101,19 @@ export function passesFilters(job: Job, f: JobFilters, ctx: FilterContext): bool
   return true;
 }
 
+export type HiddenReason = 'filters' | 'distance' | 'conflict';
+
+/** Why a job is left out of the openings list, or null when it is shown. */
+export function hiddenReason(job: Job, f: JobFilters, ctx: FilterContext): HiddenReason | null {
+  if (!passesFilters(job, f, ctx)) return 'filters';
+  if (ctx.radiusMi && ctx.distances[job.id] > ctx.radiusMi) return 'distance';
+  if (!f.showConflicts && isConflict(ctx.matches[job.id].state)) return 'conflict';
+  return null;
+}
+
 export function sortJobs(jobs: Job[], f: JobFilters, ctx: FilterContext): Job[] {
   const byFit = (a: Job, b: Job) => STATE_RANK[ctx.matches[a.id].state] - STATE_RANK[ctx.matches[b.id].state];
-  const byDistance = (a: Job, b: Job) => a.distanceMi - b.distanceMi;
+  const byDistance = (a: Job, b: Job) => ctx.distances[a.id] - ctx.distances[b.id];
   const byPay = (a: Job, b: Job) => (b.pay.max ?? b.pay.min) - (a.pay.max ?? a.pay.min);
   const order = f.sort === 'pay' ? [byPay, byFit] : f.sort === 'distance' ? [byDistance, byFit] : [byFit, byDistance];
   return [...jobs].sort((a, b) => {
@@ -111,10 +125,19 @@ export function sortJobs(jobs: Job[], f: JobFilters, ctx: FilterContext): Job[] 
   });
 }
 
-/** Splits jobs into the default list and the conflicts hidden behind the toggle. */
+/**
+ * Splits jobs into the visible list and counts of what is hidden and why.
+ * `conflicts` counts conflicting jobs that pass every other filter (the
+ * number shown on the Show conflicts toggle).
+ */
 export function partitionJobs(jobs: Job[], f: JobFilters, ctx: FilterContext) {
-  const filtered = jobs.filter((j) => passesFilters(j, f, ctx));
-  const conflicts = filtered.filter((j) => isConflict(ctx.matches[j.id].state));
-  const visible = f.showConflicts ? filtered : filtered.filter((j) => !isConflict(ctx.matches[j.id].state));
-  return { visible: sortJobs(visible, f, ctx), hiddenConflicts: f.showConflicts ? 0 : conflicts.length, conflicts: conflicts.length };
+  const reasons = new Map(jobs.map((j) => [j.id, hiddenReason(j, f, ctx)]));
+  const visible = jobs.filter((j) => reasons.get(j.id) === null);
+  const inRange = jobs.filter((j) => reasons.get(j.id) !== 'filters' && reasons.get(j.id) !== 'distance');
+  return {
+    visible: sortJobs(visible, f, ctx),
+    hiddenConflicts: jobs.filter((j) => reasons.get(j.id) === 'conflict').length,
+    outOfRange: jobs.filter((j) => reasons.get(j.id) === 'distance').length,
+    conflicts: inRange.filter((j) => isConflict(ctx.matches[j.id].state)).length,
+  };
 }

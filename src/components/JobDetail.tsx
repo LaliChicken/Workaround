@@ -1,5 +1,8 @@
 import { ArrowLeft, CircleAlert, CircleQuestionMark, Info, MapPin, Pencil, Send, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
+import { areaById } from '../data/areas';
+import { ageNotices } from '../lib/eligibility';
+import { jobDistance } from '../lib/geo';
 import { HOURS_TYPE_LABEL, jobHours, payLabel } from '../lib/jobs';
 import { href } from '../lib/router';
 import { DAY_LONG, formatRange } from '../lib/time';
@@ -21,7 +24,7 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
   const tone = STATE_META[match.state].tone;
   const application = state.applications.find((a) => a.jobId === job.id && a.status !== 'closed');
   const { profile } = state;
-  const minor = profile.ageBand === '16-17';
+  const area = areaById(profile.areaId);
   const checks = [...match.checks].sort((a, b) => Number(b.shift.required) - Number(a.shift.required) || a.shift.day - b.shift.day);
 
   return (
@@ -38,7 +41,7 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
             {job.role}
           </h2>
           <p className="jd-loc">
-            <MapPin size={16} aria-hidden="true" /> {job.area} · {job.distanceMi} mi from campus · Posted {job.postedDaysAgo} day{job.postedDaysAgo === 1 ? '' : 's'} ago
+            <MapPin size={16} aria-hidden="true" /> {job.area} · about {jobDistance(job, area.id)} mi from {area.short} · Posted {job.postedDaysAgo} day{job.postedDaysAgo === 1 ? '' : 's'} ago
           </p>
         </div>
         <div className="jd-actions">
@@ -176,19 +179,12 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
           <ShieldCheck size={20} aria-hidden="true" /> Eligibility the employer confirms
         </h3>
         <ul className="eligibility">
-          {job.minAge && (
-            <li className={minor && job.minAge >= 18 ? 'is-warning' : undefined}>
-              {minor && job.minAge >= 18 && <CircleAlert size={16} aria-hidden="true" />}
-              Minimum age {job.minAge}.{minor && job.minAge >= 18 && ' You told us you’re 16–17, so this role may not be open to you.'}
+          {ageNotices(profile, job).map((n) => (
+            <li key={n.text} className={n.tone === 'warning' ? 'is-warning' : undefined}>
+              {n.tone === 'warning' && <CircleAlert size={16} aria-hidden="true" />}
+              {n.text}
             </li>
-          )}
-          {job.eligibility.map((e) => (
-            <li key={e}>{e}</li>
           ))}
-          {minor && (
-            <li>Students under 18 usually need a work permit, and hours on school days are limited. Your school and the employer confirm what applies to you.</li>
-          )}
-          <li>Age and work eligibility are confirmed by the employer. A calendar match doesn’t establish them.</li>
         </ul>
       </section>
 

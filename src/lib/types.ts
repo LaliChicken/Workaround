@@ -31,6 +31,16 @@ export interface Schedule {
   termEnd: string;
 }
 
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+export type StudentStage = 'college' | 'dual-enrollment' | 'high-school';
+
+/** 'unknown' means the student hasn't shared it; eligibility is then flagged, never assumed. */
+export type AgeBand = 'under-16' | '16-17' | '18+' | 'unknown';
+
 export type Category = 'food' | 'retail' | 'tutoring' | 'library' | 'recreation' | 'animals';
 
 export interface Shift extends Interval {
@@ -54,8 +64,8 @@ export interface Job {
   category: Category;
   /** Approximate area, e.g. "Los Altos". */
   area: string;
-  /** Distance from the student's approximate search area (campus). */
-  distanceMi: number;
+  /** Approximate location of the fictional business, used for straight-line distance. */
+  location: LatLng;
   /** Illustrative hourly pay in USD. */
   pay: { min: number; max?: number };
   hoursType: HoursType;
