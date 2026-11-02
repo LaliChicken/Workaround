@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createScheduleHandler, IMPORT_PATH, MAX_UPLOAD_BYTES, STATUS_PATH } from './scheduleApi.ts';
-import { ScheduleParseError, type ParseResult } from './scheduleParser.ts';
+import { createScheduleHandler, IMPORT_PATH, MAX_UPLOAD_BYTES, STATUS_PATH } from './scheduleApi.js';
+import { ScheduleParseError, type ParseResult } from './scheduleParser.js';
 
 const extraction: ParseResult['extraction'] = {
   is_schedule: true,

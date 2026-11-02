@@ -20,12 +20,12 @@
       "vite/client",
       "vitest/importMeta",
       "node"
-    ],
-    "allowImportingTsExtensions": true
+    ]
   },
   "include": [
     "src",
     "server",
+    "api",
     "vite.config.ts"
   ]
 }

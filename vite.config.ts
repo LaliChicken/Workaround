@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
-import { scheduleApi } from './server/vitePlugin.ts';
+import { scheduleApi } from './server/vitePlugin.js';
 
 // Relative base so the static build works from any folder or sub-path.
 // scheduleApi() adds the local /api/schedule-import endpoint to dev and preview.

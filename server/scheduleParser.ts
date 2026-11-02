@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { ScheduleExtractionSchema, type ScheduleExtraction } from './scheduleSchema.ts';
+import { ScheduleExtractionSchema, type ScheduleExtraction } from './scheduleSchema.js';
 
 /** Cheapest current Claude model; reads PDFs and images and supports structured outputs. */
 export const SCHEDULE_MODEL = 'claude-haiku-5-5';
@@ -94,7 +94,7 @@ export async function parseSchedule(file: { data: Uint8Array; mediaType: Support
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) throw new ScheduleParseError('rate_limited', 'The schedule reader is busy. Try again in a minute.');
     if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
-      throw new ScheduleParseError('auth', 'The API key for the schedule reader was rejected. Check ANTHROPIC_API_KEY in .env.local.');
+      throw new ScheduleParseError('auth', 'The API key for the schedule reader was rejected. Check ANTHROPIC_API_KEY (in .env.local, or in the hosting settings).');
     }
     if (error instanceof Anthropic.NotFoundError) throw new ScheduleParseError('model_unavailable', MODEL_UNAVAILABLE);
     if (error instanceof Anthropic.BadRequestError) {

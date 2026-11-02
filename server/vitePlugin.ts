@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Logger, Plugin, ResolvedConfig } from 'vite';
-import { findApiKey, maskKey } from './apiKey.ts';
-import { createScheduleHandler, MAX_UPLOAD_BYTES, type ReaderStatus } from './scheduleApi.ts';
-import { checkKey, KEY_CHECK_MESSAGE, parseSchedule, SCHEDULE_MODEL } from './scheduleParser.ts';
+import { findApiKey, maskKey } from './apiKey.js';
+import { createScheduleHandler, MAX_UPLOAD_BYTES, type ReaderStatus } from './scheduleApi.js';
+import { checkKey, KEY_CHECK_MESSAGE, parseSchedule, SCHEDULE_MODEL } from './scheduleParser.js';
 
 type Handler = ReturnType<typeof createScheduleHandler>;
 

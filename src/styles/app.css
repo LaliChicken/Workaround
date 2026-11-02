@@ -1729,6 +1729,31 @@ select.input-sm {
   font-size: 13px;
 }
 
+.passcode-form {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.passcode-form .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.passcode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.passcode-row .input {
+  flex: 1 1 200px;
+}
+
 .reading {
   display: grid;
   justify-items: center;

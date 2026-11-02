@@ -18,14 +18,29 @@ npm run preview    # build, then serve the result locally (schedule upload works
 
 Everything works without an API key except reading uploaded schedules (see below). `dist/` is a static site with hash routes and relative paths. Nothing has been deployed.
 
-## Shared demo link (GitHub Pages)
+## Shared links
 
-**https://lalichicken.github.io/Workaround/** rebuilds and publishes automatically on every push to `main` (`.github/workflows/deploy-pages.yml` runs the tests, then builds). It usually updates within a couple of minutes; see the repo's **Actions** tab.
+| Link | What works | Best for |
+| --- | --- | --- |
+| **Vercel** (team link, see setup below) | Everything, **including AI schedule upload**, after entering the team passcode once | Teammates trying the AI features |
+| **https://lalichicken.github.io/Workaround/** (GitHub Pages) | Everything except upload (static site, no server to keep the key private) | Sharing the demo widely |
 
-- Everything works on the link **except schedule upload**, which needs a server with an API key. The upload box says so and offers the sample schedule. No API key is used in the workflow or shipped to the site.
-- Each person's demo state (schedule edits, applications) stays in their own browser. **Reset demo** starts over.
-- The page asks search engines not to index it.
-- **One-time setup (repo owner):** Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+Both redeploy automatically on every push to `main`. Each person's demo state stays in their own browser; **Reset demo** starts over. The pages ask search engines not to index them.
+
+### Team link with AI upload (Vercel, one-time setup, about 5 minutes)
+
+The API key is stored as a secret on Vercel's server and is never sent to the browser. Uploads only work with the team passcode, so a stranger who finds the link can't spend your credit.
+
+1. **Make a separate key for the team** in the [Anthropic Console](https://console.anthropic.com/) (API Keys → Create key, e.g. "workaround-team-demo"), and set a **monthly spend limit** (Settings → Limits), e.g. $5. Delete the key after the competition.
+2. Sign in at [vercel.com](https://vercel.com/) with GitHub (free Hobby plan) → **Add New… → Project** → import `LaliChicken/Workaround`.
+3. Before clicking Deploy, open **Environment Variables** and add:
+   - `ANTHROPIC_API_KEY` = the team key
+   - `TEAM_PASSCODE` = a passphrase you'll share with teammates (e.g. three random words)
+4. **Deploy.** Share the `https://….vercel.app` link and the passcode privately (group chat, not on the site or in the repo).
+
+Changed the key or passcode later? Update it in Vercel → Project → Settings → Environment Variables, then **Redeploy**. Upload stays off ("locked") if `TEAM_PASSCODE` is missing. Hosted uploads are limited to 4 MB (Vercel's request limit) and 15 per 10 minutes per visitor.
+
+GitHub Pages one-time setting (repo owner): Settings → Pages → Source: **GitHub Actions** (done).
 
 ## Schedule upload (AI)
 
@@ -115,7 +130,8 @@ There are no percentage scores. Compatibility is shown as a schedule check, not 
 ## Project layout
 
 ```
-server/         schedule-reading endpoint: Haiku 5.5 parser, JSON schema, request handler, Vite plugin (+ tests)
+server/         schedule reader: Haiku 5.5 parser, JSON schema, request handler, key lookup, Vite plugin, hosted (Vercel) setup (+ tests)
+api/            Vercel functions that expose the schedule reader on the team link
 src/
   lib/          matching, eligibility, distances, import normalisation, time, router (+ tests)
   data/         sample student week, fictional openings, preset search areas

@@ -1,7 +1,7 @@
-import { CircleAlert, FileText, Lock, Plus, Sparkles, Trash, Upload } from 'lucide-react';
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { CircleAlert, FileText, KeyRound, Lock, Plus, Sparkles, Trash, Upload } from 'lucide-react';
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import { SAMPLE_CLASSES } from '../data/sampleSchedule';
-import { getImportStatus, ImportError, readSchedule, type ImportStatus } from '../lib/importApi';
+import { getImportStatus, ImportError, readSchedule, savePasscode, type ImportStatus } from '../lib/importApi';
 import { rowProblem, rowsToBlocks, suggestedWindows, toReview, windowsToBlocks, type DayWindow, type ImportReview, type ReviewRow } from '../lib/scheduleImport';
 import { useMediaQuery } from '../lib/router';
 import { DAYS, DAY_LONG, DAY_SHORT, formatDate, formatTime, optionsIncluding, timeOptions } from '../lib/time';
@@ -57,6 +57,9 @@ export function ImportDialog({
   const abortRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const narrow = useMediaQuery('(max-width: 760px)');
+  const [passcode, setPasscode] = useState('');
+  const [passError, setPassError] = useState<string | null>(null);
+  const [checkingPass, setCheckingPass] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -67,7 +70,26 @@ export function ImportDialog({
     };
   }, []);
 
-  const uploadReady = status?.configured === true && !status.message;
+  const locked = status?.configured === true && !status.message && status.passcodeRequired && !status.passcodeOk;
+  const uploadReady = status?.configured === true && !status.message && !locked;
+  const maxLabel = `${Math.round((status?.maxBytes ?? 10 * 1024 * 1024) / (1024 * 1024))} MB`;
+
+  const unlock = async (e: FormEvent) => {
+    e.preventDefault();
+    const code = passcode.trim();
+    if (!code) return setPassError('Enter the passcode your team shared with you.');
+    setCheckingPass(true);
+    setPassError(null);
+    const next = await getImportStatus(code);
+    setCheckingPass(false);
+    if (next.passcodeOk) {
+      savePasscode(code);
+      setPasscode('');
+      setStatus(next);
+    } else {
+      setPassError(next.message && !next.configured ? next.message : 'That passcode isn’t right. Check it with your team.');
+    }
+  };
 
   const useSample = () => {
     setSource('sample');
@@ -85,7 +107,7 @@ export function ImportDialog({
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const extraction = await readSchedule(file, controller.signal);
+      const extraction = await readSchedule(file, controller.signal, status?.maxBytes);
       const review = toReview(extraction);
       if (review.rows.length === 0 && review.unscheduled.length === 0) {
         setError('We couldn’t find any classes in that file. Try a clearer photo or a screenshot of your weekly schedule.');
@@ -99,6 +121,11 @@ export function ImportDialog({
       setStep('review');
     } catch (e) {
       if (controller.signal.aborted) return;
+      if (e instanceof ImportError && e.code === 'passcode') {
+        // The passcode changed or was wrong: forget it and ask again.
+        savePasscode(null);
+        setStatus(await getImportStatus(null));
+      }
       setError(e instanceof ImportError ? e.message : 'Something went wrong reading the schedule. Try again.');
       setStep('choose');
     } finally {
@@ -159,6 +186,34 @@ export function ImportDialog({
           </div>
         ) : (
           <>
+            {locked && (
+              <form className="passcode-form" onSubmit={unlock}>
+                <label className="label" htmlFor="team-passcode">
+                  <KeyRound size={16} aria-hidden="true" /> Team passcode
+                </label>
+                <div className="passcode-row">
+                  <input
+                    id="team-passcode"
+                    className="input"
+                    type="password"
+                    autoComplete="off"
+                    value={passcode}
+                    onChange={(e) => setPasscode(e.target.value)}
+                    placeholder="Ask your team for it"
+                  />
+                  <button type="submit" className="btn btn-primary" disabled={checkingPass}>
+                    {checkingPass ? 'Checking…' : 'Unlock upload'}
+                  </button>
+                </div>
+                {passError ? (
+                  <p className="form-error" role="alert">
+                    {passError}
+                  </p>
+                ) : (
+                  <p className="hint">AI upload on this link is for our team. You only need to enter it once on this browser.</p>
+                )}
+              </form>
+            )}
             <label
               className={`dropzone${uploadReady ? '' : ' is-disabled'}${dragging ? ' is-dragging' : ''}`}
               aria-disabled={!uploadReady}
@@ -183,7 +238,9 @@ export function ImportDialog({
                 {status === null
                   ? 'Checking the schedule reader…'
                   : uploadReady
-                    ? 'PDF, screenshot or photo (PNG, JPEG, WEBP) · up to 10 MB'
+                    ? `PDF, screenshot or photo (PNG, JPEG, WEBP) · up to ${maxLabel}`
+                    : locked
+                      ? 'Enter the team passcode above to turn on upload.'
                     : (status.message ??
                       (status.reachable
                         ? 'Schedule reading isn’t set up on this computer yet. See the README.'

@@ -6,9 +6,46 @@ export interface ImportStatus {
   configured: boolean;
   /** False when no endpoint answered at all (e.g. a static build with no server). */
   reachable: boolean;
-  /** Why upload can't be used right now (from the local server), or null. */
+  /** Why upload can't be used right now (from the server), or null. */
   message: string | null;
+  /** Hosted sites ask for a team passcode before upload works. */
+  passcodeRequired: boolean;
+  /** Whether the saved/entered passcode is right (null when none is required). */
+  passcodeOk: boolean | null;
+  /** Largest file the server accepts. */
+  maxBytes: number;
 }
+
+const PASSCODE_HEADER = 'x-team-passcode';
+const PASSCODE_KEY = 'workaround-team-passcode';
+const DEFAULT_MAX = 10 * 1024 * 1024;
+
+/** The team passcode is kept only in this browser, so teammates enter it once. */
+export function savedPasscode(): string | null {
+  try {
+    return window.localStorage.getItem(PASSCODE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function savePasscode(code: string | null) {
+  try {
+    if (code) window.localStorage.setItem(PASSCODE_KEY, code);
+    else window.localStorage.removeItem(PASSCODE_KEY);
+  } catch {
+    /* storage blocked: the passcode just won't be remembered */
+  }
+}
+
+const offline = (message: string | null): ImportStatus => ({
+  configured: false,
+  reachable: false,
+  message,
+  passcodeRequired: false,
+  passcodeOk: null,
+  maxBytes: DEFAULT_MAX,
+});
 
 export class ImportError extends Error {
   constructor(
@@ -23,21 +60,32 @@ export class ImportError extends Error {
 /** True for the shared GitHub Pages build, which has no upload server. */
 export const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true';
 
-export async function getImportStatus(): Promise<ImportStatus> {
+export async function getImportStatus(passcode: string | null = savedPasscode()): Promise<ImportStatus> {
   if (STATIC_DEMO) {
-    return {
-      configured: false,
-      reachable: false,
-      message: 'Upload is off on this shared demo link: reading schedules needs the app running on a computer with an API key. Use the sample schedule to try the flow.',
-    };
+    return offline(
+      'Upload is off on this GitHub Pages link: reading schedules needs a server that keeps the API key private. Use the team’s Vercel link for AI upload, or the sample schedule here.',
+    );
   }
   try {
-    const res = await fetch('/api/schedule-import/status', { headers: { accept: 'application/json' } });
-    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return { configured: false, reachable: false, message: null };
-    const body = (await res.json()) as { configured?: boolean; message?: string | null };
-    return { configured: !!body.configured, reachable: true, message: body.message ?? null };
+    const headers: Record<string, string> = { accept: 'application/json' };
+    if (passcode) headers[PASSCODE_HEADER] = passcode;
+    const res = await fetch('/api/schedule-import/status', { headers });
+    if (res.status === 429) {
+      const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+      return { ...offline(body?.error?.message ?? 'Too many attempts. Wait a few minutes and try again.'), reachable: true };
+    }
+    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return offline(null);
+    const body = (await res.json()) as Partial<ImportStatus>;
+    return {
+      configured: !!body.configured,
+      reachable: true,
+      message: body.message ?? null,
+      passcodeRequired: !!body.passcodeRequired,
+      passcodeOk: body.passcodeOk ?? null,
+      maxBytes: body.maxBytes ?? DEFAULT_MAX,
+    };
   } catch {
-    return { configured: false, reachable: false, message: null };
+    return offline(null);
   }
 }
 
@@ -91,14 +139,20 @@ export async function prepareFile(file: File): Promise<{ body: Blob; type: strin
   }
 }
 
-export async function readSchedule(file: File, signal?: AbortSignal): Promise<ScheduleExtraction> {
+export async function readSchedule(file: File, signal?: AbortSignal, maxBytes = DEFAULT_MAX): Promise<ScheduleExtraction> {
   const { body, type } = await prepareFile(file);
+  if (body.size > maxBytes) {
+    throw new ImportError('too_large', `That file is over ${Math.round(maxBytes / (1024 * 1024))} MB. Try a screenshot or just the page with your weekly classes.`);
+  }
+  const headers: Record<string, string> = { 'content-type': type };
+  const passcode = savedPasscode();
+  if (passcode) headers[PASSCODE_HEADER] = passcode;
   let res: Response;
   try {
-    res = await fetch('/api/schedule-import', { method: 'POST', headers: { 'content-type': type }, body, signal });
+    res = await fetch('/api/schedule-import', { method: 'POST', headers, body, signal });
   } catch (error) {
     if (signal?.aborted) throw error;
-    throw new ImportError('network', 'Couldn’t reach the schedule reader. Check that the app is running with `npm run dev`.');
+    throw new ImportError('network', 'Couldn’t reach the schedule reader. Check your connection (or, locally, that `npm run dev` is running).');
   }
   const payload = (await res.json().catch(() => null)) as { extraction?: ScheduleExtraction; error?: { code: string; message: string } } | null;
   if (!res.ok || !payload?.extraction) {
