@@ -20,7 +20,17 @@ export class ImportError extends Error {
   }
 }
 
+/** True for the shared GitHub Pages build, which has no upload server. */
+export const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true';
+
 export async function getImportStatus(): Promise<ImportStatus> {
+  if (STATIC_DEMO) {
+    return {
+      configured: false,
+      reachable: false,
+      message: 'Upload is off on this shared demo link: reading schedules needs the app running on a computer with an API key. Use the sample schedule to try the flow.',
+    };
+  }
   try {
     const res = await fetch('/api/schedule-import/status', { headers: { accept: 'application/json' } });
     if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return { configured: false, reachable: false, message: null };

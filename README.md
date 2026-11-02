@@ -18,6 +18,15 @@ npm run preview    # build, then serve the result locally (schedule upload works
 
 Everything works without an API key except reading uploaded schedules (see below). `dist/` is a static site with hash routes and relative paths. Nothing has been deployed.
 
+## Shared demo link (GitHub Pages)
+
+**https://lalichicken.github.io/Workaround/** rebuilds and publishes automatically on every push to `main` (`.github/workflows/deploy-pages.yml` runs the tests, then builds). It usually updates within a couple of minutes; see the repo's **Actions** tab.
+
+- Everything works on the link **except schedule upload**, which needs a server with an API key. The upload box says so and offers the sample schedule. No API key is used in the workflow or shipped to the site.
+- Each person's demo state (schedule edits, applications) stays in their own browser. **Reset demo** starts over.
+- The page asks search engines not to index it.
+- **One-time setup (repo owner):** Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+
 ## Schedule upload (AI)
 
 Students can upload a **PDF, screenshot or photo** of their class schedule. Claude Haiku 5.5 (`claude-haiku-5-5`, Anthropic's lowest-cost current model) reads the class meetings into strict JSON. The student then checks every row and chooses when they're willing to work. Nothing is used for matching until they confirm.
