@@ -11,21 +11,39 @@ Requires Node 20.19+ or 22.12+.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # matching-engine tests (includes the video scenario)
+npm test           # matching, import and endpoint tests (includes the video scenario)
 npm run build      # static site in dist/
-npm run preview    # serve dist/ locally
+npm run preview    # serve dist/ locally (schedule upload works here too)
 ```
 
-`dist/` is a plain static site with hash routes and relative paths, so it works from any static host or sub-folder. Nothing has been deployed.
+Everything works without an API key except reading uploaded schedules (see below). `dist/` is a static site with hash routes and relative paths. Nothing has been deployed.
+
+## Schedule upload (AI)
+
+Students can upload a **PDF, screenshot or photo** of their class schedule. Claude Haiku 5.5 (`claude-haiku-5-5`, Anthropic's lowest-cost current model) reads the class meetings into strict JSON. The student then checks every row and chooses when they're willing to work. Nothing is used for matching until they confirm.
+
+**Turn it on (one-time, per computer):**
+
+1. Create an API key at [console.anthropic.com](https://console.anthropic.com/) and add a small amount of credit.
+2. Copy `.env.example` to `.env.local` and paste the key: `ANTHROPIC_API_KEY=sk-ant-...`
+3. Restart `npm run dev` (or `npm run preview`).
+
+`.env.local` is git-ignored. The key is used only by the local endpoint in `server/` and is never sent to the browser. Without a key, the upload area explains that reading isn't set up, and **Use sample Foothill schedule** still works.
+
+- **Try it:** upload `public/demo/sample-class-schedule.pdf` (fictional). It includes an online class and final exams, which are listed separately rather than added to the week.
+- **Cost:** Haiku 5.5 is $0.10 per million input tokens and $0.50 per million output tokens. A one-page schedule is a few thousand tokens, so roughly a tenth of a cent per upload (an estimate; the endpoint returns the actual `usage`).
+- **Privacy:** the file goes to Anthropic's API to be read. Workaround doesn't store or log it. Only availability windows, never class details, are shown to employers.
+- **Limits:** PDF, PNG, JPEG, WEBP or GIF up to 10 MB. Large photos are downscaled in the browser first. iPhone HEIC photos must be saved as JPEG or screenshotted. The endpoint allows 20 uploads per 10 minutes per computer.
+- **Accuracy:** uncertain rows are highlighted with "Check this", and times are never guessed. Students always confirm before matching.
 
 ## What's in the first build
 
 | Screen | What it does |
 | --- | --- |
-| **Setup** | School, student stage (with an age band only for high school students, and why it's asked), approximate search area (no home address), weekly hours, optional interests. Start from a sample timetable, the import flow, or an empty week. |
-| **My Schedule** | Editable weekly grid with classes, explicit **Available to work** blocks, study time, activities and other commitments. Commute buffer (0–60 min), term dates, a list view as the accessible alternative to the grid, live match counts, and **What employers see**: availability windows only, never class details. Every edit shows which jobs changed, with Undo. |
-| **Jobs** | "Jobs that fit your week", an availability summary with Edit schedule, filters (pay, distance, category, desired hours, no experience), compatible openings by default, a **Show conflicts** toggle, and Saved jobs. Desktop shows the list beside the details; mobile shows the list, then a full detail page. |
-| **Job details** | Duties, qualifications, pay, fixed/choose/variable hours, a mini week with each proposed shift over your classes, buffers and availability, a plain-language reason for every shift, and eligibility the employer confirms. |
+| **Setup** | School, student type (college, dual enrollment or high school), age band asked of everyone (with why), approximate search area from a preset list (no home address), radius, weekly hours, optional interests. Start from a sample timetable, an uploaded schedule, or an empty week. |
+| **My Schedule** | Editable weekly grid with classes, explicit **Available to work** blocks, study time, activities and other commitments. Upload or sample import with a review step, **Set when you can work** for the whole week, commute buffer (0–60 min), term dates, a list view as the accessible alternative to the grid, live match counts, and **What employers see**: availability windows only, never class details. Every edit shows which jobs changed, with Undo. |
+| **Jobs** | "Jobs that fit your week", an availability summary with Edit schedule, filters (distance from your area, pay, category, desired hours, no experience), compatible openings by default, a **Show conflicts** toggle, and Saved jobs. The open job always matches the list: if filters hide it, the next one opens, and a link to a hidden job explains why it isn't listed. Desktop shows the list beside the details; mobile shows the list, then a full detail page. |
+| **Job details** | Duties, qualifications, pay, fixed/choose/variable hours, approximate distance from your area, a mini week with each proposed shift over your classes, buffers and availability, a plain-language reason for every shift, and age/eligibility notes (flagged when your age isn't shared; always confirmed by the employer). |
 | **Apply (demo)** | Shows exactly what would be shared before you submit, warns if the job conflicts, and marks the submission clearly as simulated. |
 | **Applications** | Status tracker (Submitted, Employer reviewing, Interview, Offer). It stays at Submitted because no employer is involved. Flags it if your schedule changed after applying. Withdraw closes it. |
 | **Profile** | Profile fields, a sample existing resume, and a designed empty state for verified work feedback: "No verified work history yet". |
@@ -47,6 +65,8 @@ Record in Chrome at **1440×900**, or at **125% zoom on a 1920×1080 screen**, s
 | 1:07 | **View in Applications** | *Submitted (demo)*, with an honest next step. |
 
 The same scenario is covered by automated tests in `src/lib/matching.test.ts`, so a change to data or rules that would break the video fails `npm test`.
+
+**Optional upload beat** (needs an API key; adds about 10 seconds): from setup choose **Upload my schedule** and drop in `public/demo/sample-class-schedule.pdf`. Show the classes it found and the "Not added" online class, then **Confirm classes** and **Save my week**. The upload path uses the student's own availability choices, so the job list can differ slightly from the sample week. Record the main scenario from the sample timetable.
 
 ## How matching works
 
@@ -71,20 +91,22 @@ There are no percentage scores. Compatibility is shown as a schedule check, not 
 
 ## Real vs. simulated
 
-- **Real:** schedule editing, commute buffer, compatibility logic and explanations, filters, saved jobs, and the application review screen. State is kept in this browser's local storage.
-- **Simulated:** job openings, businesses and pay (fictional); application submission (nothing is sent); the existing resume (a sample file name).
-- **Not built:** parsing an arbitrary schedule PDF or image. The import dialog says so and uses a sample Foothill schedule to show the confirmation step. Also not built: real accounts, employer postings, messaging, payments and the full verified-rating lifecycle.
+- **Real:** reading uploaded schedules (when an API key is set, always confirmed by the student), schedule editing, commute buffer, compatibility logic and explanations, filters and distances, saved jobs, and the application review screen. State is kept in this browser's local storage.
+- **Simulated:** job openings, businesses, locations and pay (fictional); application submission (nothing is sent); the existing resume (a sample file name). Distances are straight-line estimates from a preset area, not travel time.
+- **Not built:** real accounts, employer postings, messaging, payments, hosting the upload endpoint publicly, and the full verified-rating lifecycle.
 
 ## Project layout
 
 ```
+server/         schedule-reading endpoint: Haiku 5.5 parser, JSON schema, request handler, Vite plugin (+ tests)
 src/
-  lib/          matching engine, intervals, time formatting, job helpers, router (+ tests)
-  data/         sample student week and fictional openings
+  lib/          matching, eligibility, distances, import normalisation, time, router (+ tests)
+  data/         sample student week, fictional openings, preset search areas
   state/        app state, local-storage persistence, schedule-change notifications
   components/   week grid, block editor, import, job card/detail, mini week, apply dialog
   views/        Setup, My Schedule, Jobs, Applications, Profile
   styles/       design tokens and styles (colours sampled from the logo)
 public/brand/   logo and mark (transparent PNGs cut from the supplied logo)
+public/demo/    fictional sample schedule PDF for trying the upload
 brand/          original logo file and a large mark
 ```

@@ -1,10 +1,9 @@
 import { CalendarDays, FileText, PencilLine } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { ImportDialog } from '../components/ImportDialog';
+import { ImportDialog, type ImportResult } from '../components/ImportDialog';
 import { Logo } from '../components/ui';
 import { SAMPLE_OTHER_BLOCKS, emptySchedule, sampleSchedule } from '../data/sampleSchedule';
 import { navigate } from '../lib/router';
-import type { ScheduleBlock } from '../lib/types';
 import { useStore } from '../state/store';
 import { SearchFields, StudentFields } from './ProfileView';
 
@@ -18,9 +17,18 @@ export function SetupView() {
     document.title = 'Get started · Workaround';
   }, []);
 
-  const finishWithClasses = (classes: ScheduleBlock[]) => {
+  const finish = (result: ImportResult) => {
     setImportStep(null);
-    completeSetup({ ...sampleSchedule(), blocks: [...classes, ...SAMPLE_OTHER_BLOCKS.map((b) => ({ ...b }))] });
+    const base = sampleSchedule();
+    // The sample keeps its example availability and commitments (the recorded demo relies on it);
+    // an upload starts from the student's own classes and the availability they chose.
+    const blocks =
+      result.source === 'sample' ? [...result.classes, ...SAMPLE_OTHER_BLOCKS.map((b) => ({ ...b }))] : [...result.classes, ...(result.availability ?? [])];
+    completeSetup({
+      ...base,
+      ...(result.term ? { termName: result.term.name ?? base.termName, termStart: result.term.start, termEnd: result.term.end } : {}),
+      blocks,
+    });
     navigate('/schedule');
   };
 
@@ -56,8 +64,8 @@ export function SetupView() {
             <button type="button" className="setup-option" onClick={() => setImportStep('choose')}>
               <FileText size={22} aria-hidden="true" />
               <span>
-                <strong>Import my schedule</strong>
-                <small>See how importing and confirming works</small>
+                <strong>Upload my schedule</strong>
+                <small>PDF, screenshot or photo, read by AI; you confirm every time</small>
               </span>
             </button>
             <button
@@ -79,7 +87,14 @@ export function SetupView() {
       </div>
 
       {importStep && (
-        <ImportDialog key={importStep} initialStep={importStep} onClose={() => setImportStep(null)} onConfirm={finishWithClasses} confirmLabel="Confirm and continue" />
+        <ImportDialog
+          key={importStep}
+          initialStep={importStep}
+          baseSchedule={emptySchedule()}
+          onClose={() => setImportStep(null)}
+          onConfirm={finish}
+          confirmLabel="Confirm and continue"
+        />
       )}
     </div>
   );

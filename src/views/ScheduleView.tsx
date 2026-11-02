@@ -1,7 +1,8 @@
-import { ArrowRight, CalendarDays, Eye, LayoutGrid, List, Lock, Pencil, Plus, Upload } from 'lucide-react';
+import { ArrowRight, CalendarClock, CalendarDays, Eye, LayoutGrid, List, Lock, Pencil, Plus, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BlockEditor, type EditorTarget } from '../components/BlockEditor';
-import { ImportDialog } from '../components/ImportDialog';
+import { AvailabilityDialog } from '../components/AvailabilityPicker';
+import { ImportDialog, type ImportResult } from '../components/ImportDialog';
 import { Dialog, STATE_META } from '../components/ui';
 import { KIND_META, Legend, WeekGrid, blockLabel } from '../components/WeekGrid';
 import { isConflict, weeklyWindows, workableMinutes, workableWindows } from '../lib/matching';
@@ -20,6 +21,7 @@ export function ScheduleView() {
   const [editor, setEditor] = useState<EditorTarget | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [importing, setImporting] = useState(false);
+  const [settingAvailability, setSettingAvailability] = useState(false);
   const [editingTerm, setEditingTerm] = useState(false);
 
   useEffect(() => {
@@ -72,9 +74,14 @@ export function ScheduleView() {
                 <strong>Start with your classes.</strong> Add each class meeting, then mark the times you’re willing to work. We never assume time outside class
                 is free.
               </span>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditor({ mode: 'add', kind: 'class' })}>
-                <Plus size={16} aria-hidden="true" /> Add a class
-              </button>
+              <span className="schedule-empty-actions">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setImporting(true)}>
+                  <Upload size={16} aria-hidden="true" /> Import schedule
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditor({ mode: 'add', kind: 'class' })}>
+                  <Plus size={16} aria-hidden="true" /> Add a class
+                </button>
+              </span>
             </div>
           )}
           <div className="schedule-toolbar">
@@ -93,17 +100,28 @@ export function ScheduleView() {
         <aside className="schedule-side">
           <BufferCard schedule={schedule} onChange={(minutes) => changeSchedule({ ...schedule, bufferMinutes: minutes }, `Commute buffer set to ${minutes} minutes`)} />
           <MatchCountCard matches={Object.values(matches).map((m) => m.state)} />
-          <EmployerViewCard schedule={schedule} />
+          <EmployerViewCard schedule={schedule} onSetAvailability={() => setSettingAvailability(true)} />
         </aside>
       </div>
 
       {editor && <BlockEditor key={editorKey} target={editor} onClose={() => setEditor(null)} />}
       {importing && (
         <ImportDialog
+          baseSchedule={schedule}
           onClose={() => setImporting(false)}
-          onConfirm={(imported) => {
+          onConfirm={(result) => {
             setImporting(false);
-            changeSchedule({ ...schedule, blocks: [...schedule.blocks.filter((b) => b.kind !== 'class'), ...imported] }, 'Imported classes confirmed');
+            changeSchedule(applyImport(schedule, result), result.availability ? 'Imported classes and work availability' : 'Imported classes confirmed');
+          }}
+        />
+      )}
+      {settingAvailability && (
+        <AvailabilityDialog
+          schedule={schedule}
+          onClose={() => setSettingAvailability(false)}
+          onSave={(available) => {
+            setSettingAvailability(false);
+            changeSchedule({ ...schedule, blocks: [...schedule.blocks.filter((b) => b.kind !== 'available'), ...available] }, 'Work availability updated');
           }}
         />
       )}
@@ -166,7 +184,17 @@ function MatchCountCard({ matches }: { matches: MatchState[] }) {
   );
 }
 
-function EmployerViewCard({ schedule }: { schedule: Schedule }) {
+/** Replaces classes (and availability, when the student set it) with an import. */
+function applyImport(schedule: Schedule, result: ImportResult): Schedule {
+  const keep = schedule.blocks.filter((b) => b.kind !== 'class' && (result.availability === null || b.kind !== 'available'));
+  return {
+    ...schedule,
+    ...(result.term ? { termName: result.term.name ?? schedule.termName, termStart: result.term.start, termEnd: result.term.end } : {}),
+    blocks: [...keep, ...result.classes, ...(result.availability ?? [])],
+  };
+}
+
+function EmployerViewCard({ schedule, onSetAvailability }: { schedule: Schedule; onSetAvailability: () => void }) {
   const days = weeklyWindows(schedule);
   const total = workableMinutes(schedule);
   return (
@@ -191,6 +219,9 @@ function EmployerViewCard({ schedule }: { schedule: Schedule }) {
           </ul>
         </>
       )}
+      <button type="button" className="btn btn-secondary btn-block" onClick={onSetAvailability}>
+        <CalendarClock size={18} aria-hidden="true" /> Set when you can work
+      </button>
       <p className="privacy-note">
         <Lock size={14} aria-hidden="true" /> Your class names, times and other commitments stay private.
       </p>
