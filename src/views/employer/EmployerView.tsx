@@ -1,9 +1,9 @@
 import { ArrowLeft, ArrowRight, Briefcase, CalendarDays, CircleCheck, Eye, MapPin, Pencil, Plus, Store, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Logo, Dialog } from '../../components/ui';
 import { JobPreview } from '../../components/employer/JobPreview';
 import { SharedWeek } from '../../components/employer/SharedWeek';
-import { coverage, EMPLOYER_ID, STAGE_LABELS, type BusinessProfile } from '../../lib/employer';
+import { coverage, coverageLabel, coverageSentence, EMPLOYER_ID, STAGE_LABELS, type BusinessProfile } from '../../lib/employer';
 import { ageNotices } from '../../lib/eligibility';
 import { payLabel } from '../../lib/jobs';
 import { href, navigate, useMediaQuery } from '../../lib/router';
@@ -226,49 +226,55 @@ function JobPage({ job }: { job: Job }) {
         <ArrowLeft size={16} />
         All jobs
       </a>
-      <header className="page-head">
-        <div>
-          <p className="em-eyebrow">{job.business}</p>
-          <h1>{job.role}</h1>
-          <p className="page-sub">
-            {job.area} · {payLabel(job)}
-          </p>
+      <header className="em-job-head">
+        <div className="em-job-title">
+          <div>
+            <h1>
+              {job.role} <Publication job={job} />
+            </h1>
+            <p className="page-sub">
+              {job.business} · {job.area} · {payLabel(job)}
+            </p>
+          </div>
+          <div className="em-job-actions">
+            <a className="btn btn-secondary btn-sm" href={href(`/employer/jobs/${job.id}/edit`)}>
+              <Pencil size={15} />
+              Edit
+            </a>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(true)}>
+              <Eye size={15} />
+              Student preview
+            </button>
+            {job.publication === 'published' && (
+              <button className="btn btn-quiet btn-sm" onClick={() => saveJob({ ...job, publication: 'paused' })}>
+                Pause
+              </button>
+            )}
+            {job.publication === 'paused' && (
+              <a className="btn btn-primary btn-sm" href={href(`/employer/jobs/${job.id}/edit`)}>
+                Review & republish
+              </a>
+            )}
+            {job.publication !== 'closed' && (
+              <button className="btn btn-quiet btn-sm" onClick={() => saveJob({ ...job, publication: 'closed' })}>
+                Close
+              </button>
+            )}
+          </div>
         </div>
-        <Publication job={job} />
+        <div className="em-job-hours">
+          <span className="em-job-hours-label">Hours you need</span>
+          <ShiftList job={job} />
+          <span className="muted">
+            {job.hoursType === 'choose'
+              ? `Students choose shifts · minimum ${job.minShifts ?? 'not set'}`
+              : job.hoursType === 'variable'
+                ? 'Variable hours; confirm times before progressing an application.'
+                : 'Every required shift must fit.'}
+            {job.pendingShift && ` · Time to confirm: ${job.pendingShift}`}
+          </span>
+        </div>
       </header>
-      <div className="em-job-actions">
-        <a className="btn btn-secondary" href={href(`/employer/jobs/${job.id}/edit`)}>
-          <Pencil size={16} />
-          Edit job
-        </a>
-        <button className="btn btn-secondary" onClick={() => setPreview(true)}>
-          <Eye size={16} />
-          Student preview
-        </button>
-        {job.publication === 'published' && (
-          <button className="btn btn-quiet" onClick={() => saveJob({ ...job, publication: 'paused' })}>
-            Pause opening
-          </button>
-        )}
-        {job.publication === 'paused' && (
-          <a className="btn btn-primary" href={href(`/employer/jobs/${job.id}/edit`)}>
-            Review & republish
-          </a>
-        )}
-        {job.publication !== 'closed' && (
-          <button className="btn btn-quiet" onClick={() => saveJob({ ...job, publication: 'closed' })}>
-            Close opening
-          </button>
-        )}
-      </div>
-      <div className="card em-requirements">
-        <h2>Hours you need</h2>
-        <ShiftList job={job} />
-        {job.hoursType === 'choose' && <p>Minimum optional shifts: {job.minShifts ?? 'needs confirmation'}</p>}
-        {job.hoursType === 'variable' && <p>Variable hours; confirm times before progressing an application.</p>}
-        {job.pendingShift && <p>Time to confirm: {job.pendingShift}</p>}
-        <p className="muted">Every required shift must fit. Compatibility does not mean a shift has been filled.</p>
-      </div>
       <Applicants jobId={job.id} embedded />
       {preview && (
         <Dialog open size="lg" onClose={() => setPreview(false)} title="Student-facing preview">
@@ -299,80 +305,92 @@ function Applicants({ selectedId, jobId, embedded = false }: { selectedId?: stri
       const rank = { fits: 0, confirm: 1, outside: 2 };
       return (
         (sort === 'fit'
-          ? rank[
-              coverage(
-                jobs.find((j) => j.id === a.jobId)!,
-                a.snapshot,
-              ).state
-            ] -
-            rank[
-              coverage(
-                jobs.find((j) => j.id === b.jobId)!,
-                b.snapshot,
-              ).state
-            ]
+          ? rank[coverage(jobs.find((j) => j.id === a.jobId)!, a.snapshot).state] - rank[coverage(jobs.find((j) => j.id === b.jobId)!, b.snapshot).state]
           : 0) || b.submittedAt.localeCompare(a.submittedAt)
       );
     });
   const id = embedded ? localId : selectedId;
   const selected = id ? list.find((a) => a.id === id) : wide ? list[0] : undefined;
   const select = (id?: string) => (embedded ? setLocalId(id) : navigate(id ? `/employer/applicants/${id}` : '/employer/applicants'));
+  const detailRef = useRef<HTMLDivElement>(null);
+  const chosen = useRef(false);
+  // After picking someone further down the list, bring their comparison into view.
+  useEffect(() => {
+    if (!chosen.current || !selected) return;
+    chosen.current = false;
+    const top = detailRef.current?.getBoundingClientRect().top ?? 0;
+    if (top < 0 || top > window.innerHeight * 0.6) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      detailRef.current?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+    }
+  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className={embedded ? 'em-applicants' : 'page em-page'} aria-label="Applicants">
-      <header className="page-head">
-        <div>
-          {!embedded && <p className="em-eyebrow">SHARED AVAILABILITY, CLEAR NEXT STEPS</p>}
-          {embedded ? <h2>Applicants</h2> : <h1>Applicants</h1>}
-          <p className="page-sub">Review the hours they shared, then decide what comes next.</p>
-        </div>
-      </header>
-      <div className="em-app-filters">
-        {!jobId && (
+      <div className={embedded ? 'em-applicants-bar' : undefined}>
+        {embedded ? (
+          <h2 className="em-applicants-title">
+            Applicants{' '}
+            <span className="muted">
+              · {list.length} {stage === 'active' ? 'active' : 'shown'}
+            </span>
+          </h2>
+        ) : (
+          <header className="page-head">
+            <div>
+              <p className="em-eyebrow">SHARED AVAILABILITY, CLEAR NEXT STEPS</p>
+              <h1>Applicants</h1>
+              <p className="page-sub">Review the hours they shared, then decide what comes next.</p>
+            </div>
+          </header>
+        )}
+        <div className="em-app-filters">
+          {!jobId && (
+            <label className="sort">
+              Opening
+              <select
+                className="input"
+                value={filterJob}
+                onChange={(e) => {
+                  setFilterJob(e.target.value);
+                  select();
+                }}
+              >
+                <option value="all">All openings</option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.role}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="sort">
-            Opening
+            Stage
             <select
               className="input"
-              value={filterJob}
+              value={stage}
               onChange={(e) => {
-                setFilterJob(e.target.value);
+                setStage(e.target.value);
                 select();
               }}
             >
-              <option value="all">All openings</option>
-              {jobs.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.role}
+              <option value="active">Active applications</option>
+              <option value="all">All stages</option>
+              {Object.entries(STAGE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
                 </option>
               ))}
             </select>
           </label>
-        )}
-        <label className="sort">
-          Stage
-          <select
-            className="input"
-            value={stage}
-            onChange={(e) => {
-              setStage(e.target.value);
-              select();
-            }}
-          >
-            <option value="active">Active applications</option>
-            <option value="all">All stages</option>
-            {Object.entries(STAGE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="sort">
-          Sort
-          <select className="input" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="fit">Schedule compatibility</option>
-            <option value="newest">Newest application</option>
-          </select>
-        </label>
+          <label className="sort">
+            Sort
+            <select className="input" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="fit">Schedule compatibility</option>
+              <option value="newest">Newest application</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div className="em-review-layout">
         {(wide || !id) && (
@@ -384,7 +402,10 @@ function Applicants({ selectedId, jobId, embedded = false }: { selectedId?: stri
                 <button
                   className={`card em-app-card ${selected?.id === a.id ? 'is-selected' : ''}`}
                   key={a.id}
-                  onClick={() => select(a.id)}
+                  onClick={() => {
+                    chosen.current = true;
+                    select(a.id);
+                  }}
                   aria-pressed={selected?.id === a.id}
                 >
                   <div className="em-app-name">
@@ -400,13 +421,9 @@ function Applicants({ selectedId, jobId, embedded = false }: { selectedId?: stri
                       <p>{a.snapshot.school || 'School not shared'}</p>
                     </div>
                   </div>
-                  <p>
-                    {j.role} · {STAGE_LABELS[a.status]}
-                  </p>
-                  <span className={`badge badge-${c.state === 'fits' ? 'fit' : c.state === 'confirm' ? 'confirm' : 'conflict'}`}>
-                    {c.fit}/{c.total} required shifts fit
-                  </span>
-                  <p>{c.summary}</p>
+                  <p>{embedded ? STAGE_LABELS[a.status] : `${j.role} · ${STAGE_LABELS[a.status]}`}</p>
+                  <span className={`badge badge-${c.state === 'fits' ? 'fit' : c.state === 'confirm' ? 'confirm' : 'conflict'}`}>{coverageLabel(j, c)}</span>
+                  {c.state !== 'fits' && <p>{coverageSentence(j, c)}</p>}
                   <p className="em-app-experience">{a.snapshot.experience || 'Experience not shared'}</p>
                   <p className="em-app-windows">
                     Shared: {a.snapshot.windows.map((w) => `${DAY_SHORT[w.day]} ${formatRange(w.start, w.end)}`).join(' · ') || 'Needs confirmation'}
@@ -430,7 +447,7 @@ function Applicants({ selectedId, jobId, embedded = false }: { selectedId?: stri
           </div>
         )}
         {selected ? (
-          <div className="card em-review-detail">
+          <div className="card em-review-detail" ref={detailRef}>
             {!wide && (
               <button className="link-btn back-link" onClick={() => select()}>
                 <ArrowLeft size={16} />
@@ -468,20 +485,21 @@ function Review({ application: a, job }: { application: Application; job: Job })
   const { updateStatus } = useStore();
   const [status, setStatus] = useState<ApplicationStatus>(a.status);
   const [saved, setSaved] = useState(false);
-  const c = coverage(job, a.snapshot);
   return (
     <>
-      <div className="em-section-head">
-        <p className="em-eyebrow">{a.source === 'fixture' ? 'FICTIONAL APPLICANT FIXTURE' : 'APPLICATION FROM THIS BROWSER'}</p>
+      <div className="em-review-head">
+        <div>
+          <h2>{a.snapshot.name}</h2>
+          <p className="muted">
+            {a.snapshot.school || 'School not shared'} · Applied{' '}
+            {new Date(a.submittedAt).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+            })}{' '}
+            · {a.source === 'fixture' ? 'Fictional applicant' : 'Applied in this browser'}
+          </p>
+        </div>
         <span className="badge badge-partial">{STAGE_LABELS[a.status]}</span>
-      </div>
-      <h2>{a.snapshot.name}</h2>
-      <p className="muted">
-        {job.role} · {a.snapshot.school || 'School not shared'}
-      </p>
-      <p className="muted">Applied {new Date(a.submittedAt).toLocaleString()}</p>
-      <div className={`callout ${c.state === 'fits' ? 'callout-demo' : c.state === 'outside' ? 'callout-conflict' : 'callout-warn'}`}>
-        <strong>{c.summary}</strong>
       </div>
       <SharedWeek job={job} snapshot={a.snapshot} />
       <div className="em-review-section">
@@ -586,7 +604,14 @@ function Business() {
         {(['name', 'category', 'area', 'description'] as const).map((k) => (
           <label className="field" key={k}>
             <span className="label">
-              {{ name: 'Business name', category: 'Business category', area: 'Approximate location', description: 'Business description' }[k]}
+              {
+                {
+                  name: 'Business name',
+                  category: 'Business category',
+                  area: 'Approximate location',
+                  description: 'Business description',
+                }[k]
+              }
             </span>
             {k === 'description' ? (
               <textarea

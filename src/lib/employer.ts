@@ -1,6 +1,7 @@
 import { covers } from './intervals';
 import { weeklyWindows } from './matching';
 import { independentOptional, requiredOverlap, validShift } from './shiftRules';
+import { DAY_LONG, formatRange } from './time';
 import type { Day, Interval, Job, Schedule } from './types';
 import type { Application, Profile } from '../state/store';
 
@@ -98,6 +99,57 @@ export function coverage(job: Job, snapshot: ApplicationSnapshot) {
           ? 'Meets the weekly shift minimum'
           : 'Fits all required shifts';
   return { checks, fit, total: required.length, optionalFit, state, summary };
+}
+
+/**
+ * Short coverage label for badges. Selectable-shift openings describe how many
+ * non-overlapping optional shifts fit against the minimum, rather than "0/0".
+ */
+export function coverageLabel(job: Job, result: ReturnType<typeof coverage>): string {
+  const optional = job.shifts.filter((s) => !s.required).length;
+  const required = result.total ? `${result.fit}/${result.total} required shift${result.total === 1 ? '' : 's'} fit` : '';
+  if (job.hoursType === 'choose' || (!result.total && optional)) {
+    const minimum = job.minShifts == null ? 'minimum not set' : `minimum ${job.minShifts}`;
+    const choice = `Can cover ${result.optionalFit} shift${result.optionalFit === 1 ? '' : 's'} · ${minimum}`;
+    return required ? `${required} · ${choice}` : choice;
+  }
+  if (job.hoursType === 'variable' && !result.total) return 'Variable hours · needs confirmation';
+  return required || 'Hours need confirmation';
+}
+
+/**
+ * One employer-safe sentence per opening, e.g. "Fits both required shifts" or
+ * "Available Tuesday; Thursday needs confirmation". Never says why a student is
+ * unavailable: only whether shared windows cover each shift.
+ */
+export function coverageSentence(job: Job, result: ReturnType<typeof coverage>): string {
+  const checks = result.total ? result.checks.filter((c) => c.shift.required) : result.checks;
+  if (!checks.length) return job.pendingShift ? `Time not confirmed: ${job.pendingShift}` : 'Hours need confirmation';
+  if (result.total && result.fit === result.total && result.state === 'fits' && !result.checks.some((c) => !c.shift.required)) {
+    return result.total === 1 ? 'Fits the required shift' : result.total === 2 ? 'Fits both required shifts' : `Fits all ${result.total} required shifts`;
+  }
+  const name = (c: (typeof checks)[number]) => {
+    const sameDay = checks.filter((o) => o.shift.day === c.shift.day).length > 1;
+    return `${DAY_LONG[c.shift.day]}${sameDay ? ` ${formatRange(c.shift.start, c.shift.end)}` : ''}`;
+  };
+  const join = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+  const by = (status: 'fits' | 'outside' | 'confirm') => checks.filter((c) => c.status === status).map(name);
+  if (!result.total && job.hoursType === 'choose') {
+    const n = result.optionalFit;
+    const can = `Can work ${n} shift${n === 1 ? '' : 's'} without overlap`;
+    const min = job.minShifts;
+    const vsMin = min == null ? 'minimum not set' : n >= min ? `meets the minimum of ${min}` : `${min - n} short of the minimum of ${min}`;
+    const confirm = by('confirm').length ? `; ${join(by('confirm'))} ${by('confirm').length === 1 ? 'needs' : 'need'} confirmation` : '';
+    return `${can}, ${vsMin}${confirm}`;
+  }
+  const parts: string[] = [];
+  if (by('fits').length) parts.push(`Available ${join(by('fits'))}`);
+  if (by('outside').length) parts.push(`${join(by('outside'))} ${by('outside').length === 1 ? 'is' : 'are'} outside shared availability`);
+  if (by('confirm').length) parts.push(`${join(by('confirm'))} ${by('confirm').length === 1 ? 'needs' : 'need'} confirmation`);
+  let sentence = parts.join('; ');
+  if (job.hoursType === 'choose')
+    sentence += `; plus ${result.optionalFit} optional shift${result.optionalFit === 1 ? '' : 's'} (minimum ${job.minShifts ?? 'not set'})`;
+  return sentence;
 }
 
 export function validateJob(job: Job): string[] {

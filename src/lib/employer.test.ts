@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fixtureApplications, initialJobs } from '../data/employer';
 import { sampleSchedule } from '../data/sampleSchedule';
 import { DEMO_PROFILE, initialState, normaliseState, reducer, type Application } from '../state/store';
-import { applicationSnapshot, coverage, publishedJobs, studentApplications, validateJob } from './employer';
+import { applicationSnapshot, coverage, coverageLabel, coverageSentence, publishedJobs, studentApplications, validateJob } from './employer';
 import { evaluateJob } from './matching';
 import { jobHours } from './jobs';
 import type { Job } from './types';
@@ -15,6 +15,45 @@ const browserApplication = (): Application => ({
   applicantId: 'browser-student',
   source: 'browser',
   snapshot: snapshot(),
+});
+
+describe('coverage labels', () => {
+  const choose = (minShifts: number | null): Job => ({
+    ...job(),
+    hoursType: 'choose',
+    minShifts,
+    shifts: [
+      { id: 'a', day: 0, start: 960, end: 1080, required: false },
+      { id: 'b', day: 2, start: 960, end: 1080, required: false },
+      { id: 'c', day: 4, start: 960, end: 1080, required: false },
+      { id: 'd', day: 4, start: 1000, end: 1100, required: false },
+    ],
+  });
+  const everywhere = {
+    ...snapshot(),
+    windows: [0, 2, 4].map((day) => ({ day: day as 0, start: 900, end: 1200 })),
+  };
+  it('describes fixed openings by required shifts', () => {
+    expect(coverageLabel(job(), coverage(job(), fixtureApplications()[1].snapshot))).toBe('1/2 required shifts fit');
+  });
+  it('never shows 0/0 for optional-only openings, and counts overlapping choices once', () => {
+    const j = choose(2);
+    expect(coverageLabel(j, coverage(j, everywhere))).toBe('Can cover 3 shifts · minimum 2');
+    const unset = choose(null);
+    expect(coverageLabel(unset, coverage(unset, everywhere))).toBe('Can cover 3 shifts · minimum not set');
+  });
+  it('summarises per shift without saying why someone is unavailable', () => {
+    const [maya, jordan, sam] = fixtureApplications().map((a) => coverageSentence(job(), coverage(job(), a.snapshot)));
+    expect(maya).toBe('Fits both required shifts');
+    expect(jordan).toBe('Available Tuesday; Thursday is outside shared availability');
+    expect(sam).toBe('Available Tuesday; Thursday needs confirmation');
+  });
+  it('mentions both parts when a selectable opening also has required shifts', () => {
+    const j = choose(1);
+    j.shifts = [{ id: 'r', day: 1, start: 780, end: 1020, required: true }, ...j.shifts];
+    const label = coverageLabel(j, coverage(j, everywhere));
+    expect(label).toBe('0/1 required shift fit · Can cover 3 shifts · minimum 1');
+  });
 });
 
 describe('employer coverage and validation', () => {
@@ -77,7 +116,10 @@ describe('employer coverage and validation', () => {
       { ...job(), pay: { min: NaN } },
       { ...job(), pay: { min: 20, max: 10 } },
       { ...job(), shifts: [{ ...job().shifts[0], end: 0 }] },
-      { ...job(), shifts: [job().shifts[0], { ...job().shifts[0], id: 'duplicate' }] },
+      {
+        ...job(),
+        shifts: [job().shifts[0], { ...job().shifts[0], id: 'duplicate' }],
+      },
     ])
       expect(validateJob(j)).not.toHaveLength(0);
   });
@@ -128,19 +170,38 @@ describe('application privacy and shared demo state', () => {
     let state = initialState();
     const draft = state.jobs.find((j) => j.publication === 'draft')!;
     expect(publishedJobs(state.jobs).some((j) => j.id === draft.id)).toBe(false);
-    state = reducer(state, { type: 'save-job', job: { ...draft, publication: 'published' } });
+    state = reducer(state, {
+      type: 'save-job',
+      job: { ...draft, publication: 'published' },
+    });
     expect(publishedJobs(state.jobs).find((j) => j.id === draft.id)?.shifts).toEqual(draft.shifts);
-    state = reducer(state, { type: 'save-job', job: { ...draft, publication: 'paused' } });
+    state = reducer(state, {
+      type: 'save-job',
+      job: { ...draft, publication: 'paused' },
+    });
     expect(publishedJobs(state.jobs).some((j) => j.id === draft.id)).toBe(false);
     expect(initialJobs().find((j) => j.id === draft.id)?.publication).toBe('draft');
   });
   it('syncs deliberate status changes without replacing fixtures or changing submitted snapshots', () => {
-    let state = reducer(initialState(), { type: 'apply', application: browserApplication() });
+    let state = reducer(initialState(), {
+      type: 'apply',
+      application: browserApplication(),
+    });
     expect(state.applications).toHaveLength(4);
-    state = reducer(state, { type: 'profile', patch: { firstName: 'New name' } });
-    state = reducer(state, { type: 'schedule', schedule: { ...sampleSchedule(), blocks: [] } });
+    state = reducer(state, {
+      type: 'profile',
+      patch: { firstName: 'New name' },
+    });
+    state = reducer(state, {
+      type: 'schedule',
+      schedule: { ...sampleSchedule(), blocks: [] },
+    });
     expect(state.applications[0].snapshot).toEqual(snapshot());
-    state = reducer(state, { type: 'status', id: 'browser-app', status: 'reviewing' });
+    state = reducer(state, {
+      type: 'status',
+      id: 'browser-app',
+      status: 'reviewing',
+    });
     expect(studentApplications(state.applications)[0].status).toBe('reviewing');
     expect(normaliseState(JSON.parse(JSON.stringify(state))).applications[0].status).toBe('reviewing');
     state = reducer(state, { type: 'share-availability', id: 'browser-app' });
