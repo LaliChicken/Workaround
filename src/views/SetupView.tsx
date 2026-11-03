@@ -40,11 +40,19 @@ export function SetupView() {
         <p className="setup-lead">A few quick details, then your weekly schedule. Sample answers are filled in for this demo.</p>
 
         <form className="form" onSubmit={(e) => e.preventDefault()}>
-          <div className="field">
-            <label className="label" htmlFor={`${uid}-first`}>
-              First name
-            </label>
-            <input id={`${uid}-first`} className="input" value={p.firstName} onChange={(e) => updateProfile({ firstName: e.target.value })} />
+          <div className="field-row">
+            <div className="field">
+              <label className="label" htmlFor={`${uid}-first`}>
+                First name
+              </label>
+              <input id={`${uid}-first`} className="input" autoComplete="given-name" value={p.firstName} onChange={(e) => updateProfile({ firstName: e.target.value })} />
+            </div>
+            <div className="field">
+              <label className="label" htmlFor={`${uid}-last`}>
+                Last name
+              </label>
+              <input id={`${uid}-last`} className="input" autoComplete="family-name" value={p.lastName} onChange={(e) => updateProfile({ lastName: e.target.value })} />
+            </div>
           </div>
           <StudentFields profile={p} onChange={updateProfile} />
           <SearchFields profile={p} onChange={updateProfile} />
