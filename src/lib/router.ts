@@ -5,7 +5,17 @@ import { useEffect, useState } from 'react';
  * Hash routes keep the static build working from any folder or host.
  */
 function parse(hash: string): string[] {
-  return hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  return hash
+    .replace(/^#\/?/, '')
+    .split('/')
+    .filter(Boolean)
+    .map((s) => {
+      try {
+        return decodeURIComponent(s);
+      } catch {
+        return s;
+      }
+    });
 }
 
 export function useRoute(): string[] {

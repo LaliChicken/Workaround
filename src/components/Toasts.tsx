@@ -1,13 +1,12 @@
 import { ArrowRight, CalendarClock, CircleCheck, Undo2, X } from 'lucide-react';
 import { useEffect } from 'react';
-import { jobById } from '../data/jobs';
 import { isConflict } from '../lib/matching';
 import { href } from '../lib/router';
 import { useStore, type Toast } from '../state/store';
 import { STATE_META } from './ui';
 
 function ToastItem({ toast }: { toast: Toast }) {
-  const { dismissToast, changeSchedule, setFilters } = useStore();
+  const { state, dismissToast, changeSchedule, setFilters } = useStore();
   const hasChanges = !!toast.changes?.length;
 
   useEffect(() => {
@@ -25,7 +24,8 @@ function ToastItem({ toast }: { toast: Toast }) {
         {hasChanges && (
           <ul className="toast-changes">
             {toast.changes!.map((c) => {
-              const job = jobById(c.jobId)!;
+              const job = state.jobs.find(j => j.id === c.jobId);
+              if (!job) return null;
               const from = STATE_META[c.from];
               const to = STATE_META[c.to];
               return (

@@ -1,3 +1,4 @@
+import { independentOptional, requiredOverlap, validShift } from './shiftRules';
 import { covers, merge, overlaps, subtract } from './intervals';
 import { DAY_LONG, DAY_SHORT, formatRange, formatTimeWords, numberWord } from './time';
 import type { Day, Interval, Job, Match, MatchState, Schedule, ScheduleBlock, Shift, ShiftCheck, ShiftStatus } from './types';
@@ -65,9 +66,7 @@ export function workableWindows(schedule: Schedule, day: Day): Interval[] {
 }
 
 export function weeklyWindows(schedule: Schedule): { day: Day; windows: Interval[] }[] {
-  return ([0, 1, 2, 3, 4, 5, 6] as Day[])
-    .map((day) => ({ day, windows: workableWindows(schedule, day) }))
-    .filter((d) => d.windows.length > 0);
+  return ([0, 1, 2, 3, 4, 5, 6] as Day[]).map((day) => ({ day, windows: workableWindows(schedule, day) })).filter((d) => d.windows.length > 0);
 }
 
 export function workableMinutes(schedule: Schedule): number {
@@ -94,9 +93,7 @@ export function checkShift(shift: Shift, schedule: Schedule): ShiftCheck {
   // 2. Not enough travel time around a class.
   if (buffer > 0) {
     const classes = dayBlocks.filter((b) => b.kind === 'class');
-    const before = classes
-      .filter((c) => c.end <= shift.start && shift.start - c.end < buffer)
-      .sort((x, y) => y.end - x.end)[0];
+    const before = classes.filter((c) => c.end <= shift.start && shift.start - c.end < buffer).sort((x, y) => y.end - x.end)[0];
     if (before) {
       issues.push({
         status: 'commute',
@@ -107,9 +104,7 @@ export function checkShift(shift: Shift, schedule: Schedule): ShiftCheck {
         blockerId: before.id,
       });
     }
-    const after = classes
-      .filter((c) => c.start >= shift.end && c.start - shift.end < buffer)
-      .sort((x, y) => x.start - y.start)[0];
+    const after = classes.filter((c) => c.start >= shift.end && c.start - shift.end < buffer).sort((x, y) => x.start - y.start)[0];
     if (after) {
       issues.push({
         status: 'commute',
@@ -156,15 +151,12 @@ function outsideReason(shift: Shift, available: Interval[]): string {
 }
 
 function fitReason(shift: Shift, dayBlocks: ScheduleBlock[], buffer: number): string {
-  const prevClass = dayBlocks
-    .filter((b) => b.kind === 'class' && b.end <= shift.start)
-    .sort((x, y) => y.end - x.end)[0];
-  const nextClass = dayBlocks
-    .filter((b) => b.kind === 'class' && b.start >= shift.end)
-    .sort((x, y) => x.start - y.start)[0];
+  const prevClass = dayBlocks.filter((b) => b.kind === 'class' && b.end <= shift.start).sort((x, y) => y.end - x.end)[0];
+  const nextClass = dayBlocks.filter((b) => b.kind === 'class' && b.start >= shift.end).sort((x, y) => x.start - y.start)[0];
   if (prevClass) {
     const gap = shift.start - prevClass.end;
-    if (buffer === 0) return `Your class ends at ${formatTimeWords(prevClass.end)}, ${gap} minutes before this shift. You haven't set a commute buffer.`;
+    if (buffer === 0)
+      return `Your class ends at ${formatTimeWords(prevClass.end)}, ${gap} minutes before this shift. You haven't set a commute buffer.`;
     if (gap === buffer) return `Your class ends at ${formatTimeWords(prevClass.end)}, leaving exactly your ${buffer}-minute buffer.`;
     if (gap < 180) return `Your class ends at ${formatTimeWords(prevClass.end)}, leaving ${gap} minutes to travel (you need ${buffer}).`;
   }
@@ -186,7 +178,10 @@ export function evaluateJob(job: Job, schedule: Schedule): Match {
   const required = checks.filter((c) => c.shift.required);
   const optional = checks.filter((c) => !c.shift.required);
   const requiredFit = required.filter((c) => c.status === 'fits').length;
-  const optionalFit = optional.filter((c) => c.status === 'fits').length;
+  const optionalFit = independentOptional(
+    optional.filter((c) => c.status === 'fits').map((c) => c.shift),
+    required.map((c) => c.shift),
+  );
   const base = {
     jobId: job.id,
     checks,
@@ -196,6 +191,9 @@ export function evaluateJob(job: Job, schedule: Schedule): Match {
     optionalFit,
   };
 
+  if ((!job.shifts.length && job.hoursType !== 'variable') || job.shifts.some((s) => !validShift(s)))
+    return { ...base, state: 'confirm', summary: 'Shift times need confirmation.' };
+  if (requiredOverlap(job.shifts)) return { ...base, state: 'conflict', summary: 'Required shifts overlap. Ask the employer to correct the hours.' };
   const hard = required.find((c) => c.status === 'overlap' || c.status === 'outside');
   if (hard) return { ...base, state: 'conflict', summary: hard.reasons[0] };
 
@@ -226,6 +224,8 @@ export function evaluateJob(job: Job, schedule: Schedule): Match {
 
   if (job.hoursType === 'choose') {
     const min = job.minShifts ?? null;
+    if (min === null)
+      return { ...base, state: 'confirm', summary: 'Confirm the minimum weekly commitment before treating this as a schedule match.' };
     if (optionalFit === 0) {
       return { ...base, state: 'conflict', summary: "None of the optional shifts fit the time you're available." };
     }
@@ -236,10 +236,7 @@ export function evaluateJob(job: Job, schedule: Schedule): Match {
         summary: `Only ${numberWord(optionalFit)} optional shift${optionalFit === 1 ? '' : 's'} fit${optionalFit === 1 ? 's' : ''}, but ${job.business} asks for at least ${numberWord(min)} a week.`,
       };
     }
-    const lead =
-      optionalFit === 1
-        ? `One optional shift fits`
-        : `${numberWord(optionalFit, true)} optional shifts fit`;
+    const lead = optionalFit === 1 ? `One optional shift fits` : `${numberWord(optionalFit, true)} optional shifts fit`;
     const fittingDays = optional.filter((c) => c.status === 'fits').map((c) => DAY_SHORT[c.shift.day]);
     return {
       ...base,

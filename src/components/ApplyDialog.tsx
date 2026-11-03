@@ -55,7 +55,7 @@ export function ApplyDialog({ job, onClose }: { job: Job; onClose: () => void })
             <strong>Nothing was sent.</strong> This is a simulated submission. In a live version, {job.business} would receive your profile and the
             availability you reviewed.
           </p>
-          <p className="muted">Track it in Applications. Its status stays at “Submitted” because no real employer is involved in this demo.</p>
+          <p className="muted">Track it in Applications. Switch to Employer demo to review it and update its status in this browser.</p>
         </div>
       </Dialog>
     );

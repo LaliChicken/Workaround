@@ -1,6 +1,6 @@
 # Workaround
 
-**Work that fits around class.** A student-facing prototype for the round-two video: students see which jobs fit their real weekly availability, and why, before they apply.
+**Work that fits around class.** A two-sided student and employer prototype for the round-two video: students see which jobs fit their real weekly availability, and why, before they apply.
 
 > Demo prototype. Every opening, business, pay rate and application in this app is fictional. Applications are simulated and never sent anywhere.
 
@@ -16,7 +16,7 @@ npm run build      # static site in dist/
 npm run preview    # build, then serve the result locally (schedule upload works here too)
 ```
 
-Everything works without an API key except reading uploaded schedules (see below). `dist/` is a static site with hash routes and relative paths. Nothing has been deployed.
+Everything works without an API key except reading uploaded schedules (see below). `dist/` is a static site with hash routes and relative paths. The shared links below serve the deployed student baseline; local changes require a separate deployment.
 
 ## Shared links
 
@@ -77,7 +77,7 @@ Students can upload a **PDF, screenshot or photo** of their class schedule. Clau
 | **Jobs** | "Jobs that fit your week", an availability summary with Edit schedule, filters (distance from your area, pay, category, desired hours, no experience), compatible openings by default, a **Show conflicts** toggle, and Saved jobs. The open job always matches the list: if filters hide it, the next one opens, and a link to a hidden job explains why it isn't listed. Desktop shows the list beside the details; mobile shows the list, then a full detail page. |
 | **Job details** | Duties, qualifications, pay, fixed/choose/variable hours, approximate distance from your area, a mini week with each proposed shift over your classes, buffers and availability, a plain-language reason for every shift, and age/eligibility notes (flagged when your age isn't shared; always confirmed by the employer). |
 | **Apply (demo)** | Shows exactly what would be shared before you submit, warns if the job conflicts, and marks the submission clearly as simulated. |
-| **Applications** | Status tracker (Submitted, Employer reviewing, Interview, Offer). It stays at Submitted because no employer is involved. Flags it if your schedule changed after applying. Withdraw closes it. |
+| **Applications** | Status tracker (Submitted, Employer reviewing, Interview, Offer). Employer demo updates appear in the same browser. Flags it if your schedule changed after applying. Withdraw closes it. |
 | **Profile** | Profile fields, a sample existing resume, and a designed empty state for verified work feedback: "No verified work history yet". |
 
 ## Recording the 45-second student demo
@@ -125,7 +125,7 @@ There are no percentage scores. Compatibility is shown as a schedule check, not 
 
 - **Real:** reading uploaded schedules (when an API key is set, always confirmed by the student), schedule editing, commute buffer, compatibility logic and explanations, filters and distances, saved jobs, and the application review screen. State is kept in this browser's local storage.
 - **Simulated:** job openings, businesses, locations and pay (fictional); application submission (nothing is sent); the existing resume (a sample file name). Distances are straight-line estimates from a preset area, not travel time.
-- **Not built:** real accounts, employer postings, messaging, payments, hosting the upload endpoint publicly, and the full verified-rating lifecycle.
+- **Not built:** real accounts, multi-user employer postings, messaging, payments, hosting the upload endpoint publicly, and the full verified-rating lifecycle.
 
 ## Project layout
 
@@ -143,3 +143,23 @@ public/brand/   logo and mark (transparent PNGs cut from the supplied logo)
 public/demo/    fictional sample schedule PDF for trying the upload
 brand/          original logo file and a large mark
 ```
+
+## Employer demo
+
+Use **Employer demo** above the navigation, or open `#/employer/jobs` directly without student onboarding. The workspace uses the existing Workaround logo, light theme, Quicksand headings, Inter body text and shared color tokens.
+
+1. Open the draft **Afternoon café assistant**, edit its Tuesday/Thursday 1–5 pm shifts, then preview and publish it. New jobs can be created with the same multi-day shift editor.
+2. Switch to **Student demo**, choose the sample timetable and confirm. Open the published role and submit a demo application.
+3. Switch back to **Employer demo → Applicants**. The browser application appears alongside clearly labelled fictional fixtures. Maya fits both Barista shifts, Jordan covers Tuesday only, and Sam needs confirmation for Thursday.
+4. Review only the submitted profile and effective work-availability windows. Select **Employer reviewing**, then **Update demo status**. The student's Applications page shows that status.
+5. Refresh: openings, drafts, business profile and application stages persist. **Reset demo** restores both roles, including the original openings and three fixtures.
+
+Draft, paused and closed jobs are hidden from student browsing. The employer can filter applications by opening and stage, or sort by schedule compatibility or submission time. Published jobs may be edited through preview; pausing/closing a role does not silently close its applications. Business profile changes supply defaults for new postings and do not rewrite existing postings.
+
+Applications save a detached profile, resume filename and structured availability snapshot. Later profile or schedule edits do not rewrite it. **Share current availability** on a student's application explicitly updates only its availability. Older applications retain their original display windows, but appear as needing confirmation in the employer review because earlier versions did not save structured windows or historical profile fields. No historical data is fabricated from the current profile.
+
+Selectable-shift minimums exclude overlapping alternatives and optional shifts overlapping mandatory shifts. Unknown hours/minimums need confirmation. Invalid pay, inverted times, overlapping mandatory shifts and impossible minimums block publication. Every mandatory shift must fit; unmarked time is unavailable.
+
+This remains a browser-local prototype, not authentication or a production privacy boundary. Separate users require server-side authorization, tenant isolation and controlled data access. Local storage does not sync browsers, devices or teammates. Fixtures are not a real student network. Resumes are filename references; status updates send no messages, invitations or offers. An Offer stage is not an accepted offer or hire. No billing, verification or feedback service is connected. New opening distances currently use the fictional café's Los Altos coordinates; the location label is descriptive, not geocoded.
+
+Validation includes coverage, overlapping optional shifts, application projections, snapshot immutability, migration, publication visibility, status synchronization and reset (`npm test`), plus the TypeScript/production build (`npm run build`). The schedule-upload service and secret handling are unchanged.

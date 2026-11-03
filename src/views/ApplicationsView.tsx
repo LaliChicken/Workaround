@@ -1,7 +1,7 @@
 import { ArrowRight, CircleAlert, FileText, FlaskConical, Inbox } from 'lucide-react';
 import { useEffect } from 'react';
 import { StatusBadge } from '../components/ui';
-import { jobById } from '../data/jobs';
+import { STAGE_LABELS, studentApplications } from '../lib/employer';
 import { href } from '../lib/router';
 import { type Application, type ApplicationStatus, useStore } from '../state/store';
 
@@ -38,11 +38,11 @@ export function ApplicationsView() {
       <p className="callout callout-demo">
         <FlaskConical size={18} aria-hidden="true" />
         <span>
-          <strong>Simulated applications.</strong> No employer has received or responded to anything here.
+          <strong>Simulated applications.</strong> Updates in the Employer demo appear here in this browser. Nothing is sent to a real employer.
         </span>
       </p>
 
-      {state.applications.length === 0 ? (
+      {studentApplications(state.applications).length === 0 ? (
         <div className="empty card">
           <Inbox size={32} aria-hidden="true" />
           <p className="empty-title">No applications yet</p>
@@ -53,7 +53,7 @@ export function ApplicationsView() {
         </div>
       ) : (
         <ul className="app-list">
-          {state.applications.map((a) => (
+          {studentApplications(state.applications).map((a) => (
             <ApplicationCard key={a.id} application={a} />
           ))}
         </ul>
@@ -63,9 +63,16 @@ export function ApplicationsView() {
 }
 
 function ApplicationCard({ application: a }: { application: Application }) {
-  const { matches, withdraw } = useStore();
-  const job = jobById(a.jobId);
-  if (!job) return null;
+  const { state, matches, withdraw, shareAvailability, notify } = useStore();
+  const job = state.jobs.find((j) => j.id === a.jobId);
+  if (!job)
+    return (
+      <li className="card app-card">
+        <h2>Opening unavailable</h2>
+        <p>Your saved application is retained, but this opening is no longer available.</p>
+        <span className="status-pill">{STAGE_LABELS[a.status]} (demo)</span>
+      </li>
+    );
   const now = matches[job.id];
   const changed = a.status !== 'closed' && now.state !== a.stateAtSubmit;
   const closed = a.status === 'closed';
@@ -83,13 +90,17 @@ function ApplicationCard({ application: a }: { application: Application }) {
             {job.business} · {job.area}
           </p>
         </div>
-        <span className={`status-pill${closed ? ' is-closed' : ''}`}>{closed ? 'Closed' : 'Submitted (demo)'}</span>
+        <span className={`status-pill${closed ? ' is-closed' : ''}`}>{STAGE_LABELS[a.status] + ' (demo)'}</span>
       </header>
 
       {!closed && (
         <ol className="progress" aria-label="Application progress">
           {STEPS.map((s, i) => (
-            <li key={s.status} className={i < currentIndex ? 'is-done' : i === currentIndex ? 'is-current' : ''} aria-current={i === currentIndex ? 'step' : undefined}>
+            <li
+              key={s.status}
+              className={i < currentIndex ? 'is-done' : i === currentIndex ? 'is-current' : ''}
+              aria-current={i === currentIndex ? 'step' : undefined}
+            >
               <span className="progress-dot" aria-hidden="true" />
               {s.label}
             </li>
@@ -107,7 +118,7 @@ function ApplicationCard({ application: a }: { application: Application }) {
         </div>
         <div>
           <dt>Next step</dt>
-          <dd>{closed ? a.closedReason ?? NEXT_STEP.closed : NEXT_STEP[a.status]}</dd>
+          <dd>{closed ? (a.closedReason ?? NEXT_STEP.closed) : NEXT_STEP[a.status]}</dd>
         </div>
         <div>
           <dt>Shared</dt>
@@ -132,14 +143,21 @@ function ApplicationCard({ application: a }: { application: Application }) {
       {changed && (
         <p className="callout callout-warn">
           <CircleAlert size={18} aria-hidden="true" />
-          <span>
-            Your schedule changed after you applied. {now.summary} Let the employer know if your availability has changed.
-          </span>
+          <span>Your schedule changed after you applied. {now.summary} Let the employer know if your availability has changed.</span>
         </p>
       )}
 
       {!closed && (
         <footer className="app-foot">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              shareAvailability(a.id);
+              notify({ tone: 'success', title: 'Updated availability shared with this demo application.' });
+            }}
+          >
+            Share current availability
+          </button>
           <a className="btn btn-quiet btn-sm" href={href(`/jobs/${job.id}`)}>
             View job
           </a>

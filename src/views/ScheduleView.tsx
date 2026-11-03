@@ -99,7 +99,7 @@ export function ScheduleView() {
 
         <aside className="schedule-side">
           <BufferCard schedule={schedule} onChange={(minutes) => changeSchedule({ ...schedule, bufferMinutes: minutes }, `Commute buffer set to ${minutes} minutes`)} />
-          <MatchCountCard matches={Object.values(matches).map((m) => m.state)} />
+          <MatchCountCard matches={state.jobs.filter(j => j.publication === 'published').map(j => matches[j.id].state)} />
           <EmployerViewCard schedule={schedule} onSetAvailability={() => setSettingAvailability(true)} />
         </aside>
       </div>

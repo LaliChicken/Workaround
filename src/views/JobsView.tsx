@@ -3,9 +3,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { JobCard } from '../components/JobCard';
 import { JobDetail } from '../components/JobDetail';
 import { RADIUS_OPTIONS, SEARCH_AREAS, areaById } from '../data/areas';
-import { CATEGORY_LABEL, JOBS, jobById } from '../data/jobs';
+import { CATEGORY_LABEL } from '../data/jobs';
+import { publishedJobs } from '../lib/employer';
 import { jobDistances } from '../lib/geo';
-import { DEFAULT_FILTERS, hasActiveFilters, hiddenReason, partitionJobs, sortJobs, type FilterContext, type HiddenReason, type JobFilters } from '../lib/jobs';
+import {
+  DEFAULT_FILTERS,
+  hasActiveFilters,
+  hiddenReason,
+  partitionJobs,
+  sortJobs,
+  type FilterContext,
+  type HiddenReason,
+  type JobFilters,
+} from '../lib/jobs';
 import { weeklyWindows, workableMinutes } from '../lib/matching';
 import { href, navigate, useMediaQuery } from '../lib/router';
 import { formatDayList, formatHours } from '../lib/time';
@@ -17,15 +27,20 @@ const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function JobsView({ jobId }: { jobId?: string }) {
   const { state, matches, setFilters, updateProfile, recent } = useStore();
   const { filters, profile } = state;
+  const jobs = useMemo(() => publishedJobs(state.jobs), [state.jobs]);
   const wide = useMediaQuery('(min-width: 1000px)');
   const [tab, setTab] = useState<'all' | 'saved'>('all');
   const area = areaById(profile.areaId);
-  const distances = useMemo(() => jobDistances(JOBS, area.id), [area.id]);
+  const distances = useMemo(() => jobDistances(jobs, area.id), [area.id, jobs]);
   const ctx: FilterContext = { matches, hoursMin: profile.hoursMin, hoursMax: profile.hoursMax, distances, radiusMi: profile.radiusMi };
-  const { visible, hiddenConflicts, outOfRange, conflicts } = partitionJobs(JOBS, filters, ctx);
-  const savedJobs = sortJobs(JOBS.filter((j) => state.saved.includes(j.id)), filters, ctx);
+  const { visible, hiddenConflicts, outOfRange, conflicts } = partitionJobs(jobs, filters, ctx);
+  const savedJobs = sortJobs(
+    jobs.filter((j) => state.saved.includes(j.id)),
+    filters,
+    ctx,
+  );
   const list = tab === 'saved' ? savedJobs : visible;
-  const selected = jobId ? jobById(jobId) : undefined;
+  const selected = jobId ? jobs.find((j) => j.id === jobId) : undefined;
   const firstId = list[0]?.id;
   const inList = !!selected && list.some((j) => j.id === selected.id);
   const nextRadius = RADIUS_OPTIONS.find((r) => r > profile.radiusMi);
@@ -82,6 +97,18 @@ export function JobsView({ jobId }: { jobId?: string }) {
     />
   );
 
+  if (jobId && !selected)
+    return (
+      <div className="page">
+        <div className="card empty">
+          <h1>Opening unavailable</h1>
+          <p>This job is not published or no longer exists.</p>
+          <a className="btn btn-primary" href={href('/jobs')}>
+            Back to openings
+          </a>
+        </div>
+      </div>
+    );
   if (!wide && selected) {
     return (
       <div className="page page-job">
@@ -156,7 +183,11 @@ export function JobsView({ jobId }: { jobId?: string }) {
               <p className="empty-title">No openings match</p>
               <p>{hasActiveFilters(filters) ? 'Try clearing some filters.' : 'Nothing fits your week, filters and distance right now.'}</p>
               {hasActiveFilters(filters) && (
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort, showConflicts: filters.showConflicts })}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort, showConflicts: filters.showConflicts })}
+                >
                   Clear filters
                 </button>
               )}
@@ -277,7 +308,8 @@ function AvailabilitySummary() {
       <CalendarDays size={20} aria-hidden="true" />
       {minutes > 0 ? (
         <p>
-          You can work about <strong>{formatHours(minutes)}</strong> a week · {formatDayList(days)} · {state.schedule.bufferMinutes}-min commute buffer
+          You can work about <strong>{formatHours(minutes)}</strong> a week · {formatDayList(days)} · {state.schedule.bufferMinutes}-min commute
+          buffer
         </p>
       ) : (
         <p>You haven’t marked any time as available to work yet.</p>
@@ -290,7 +322,15 @@ function AvailabilitySummary() {
 }
 
 /** The profile's search area and radius, editable from the Jobs page. */
-function DistanceControl({ areaId, radiusMi, onChange }: { areaId: string; radiusMi: number; onChange: (p: { areaId?: string; radiusMi?: number }) => void }) {
+function DistanceControl({
+  areaId,
+  radiusMi,
+  onChange,
+}: {
+  areaId: string;
+  radiusMi: number;
+  onChange: (p: { areaId?: string; radiusMi?: number }) => void;
+}) {
   return (
     <span className="distance-control" role="group" aria-label="Distance">
       <select className="input input-sm" aria-label="Search radius" value={radiusMi} onChange={(e) => onChange({ radiusMi: Number(e.target.value) })}>
@@ -327,7 +367,12 @@ function FilterControls({
 }) {
   return (
     <>
-      <select className="input input-sm" aria-label="Minimum hourly pay" value={filters.minPay} onChange={(e) => setFilters({ minPay: Number(e.target.value) })}>
+      <select
+        className="input input-sm"
+        aria-label="Minimum hourly pay"
+        value={filters.minPay}
+        onChange={(e) => setFilters({ minPay: Number(e.target.value) })}
+      >
         {PAY_OPTIONS.map((p) => (
           <option key={p} value={p}>
             {p ? `$${p}+/hr` : 'Any pay'}
@@ -350,11 +395,20 @@ function FilterControls({
       <button type="button" className="chip-btn" aria-pressed={filters.withinHours} onClick={() => setFilters({ withinHours: !filters.withinHours })}>
         Fits my {hoursMin}–{hoursMax} hrs
       </button>
-      <button type="button" className="chip-btn" aria-pressed={filters.noExperience} onClick={() => setFilters({ noExperience: !filters.noExperience })}>
+      <button
+        type="button"
+        className="chip-btn"
+        aria-pressed={filters.noExperience}
+        onClick={() => setFilters({ noExperience: !filters.noExperience })}
+      >
         No experience required
       </button>
       {hasActiveFilters(filters) && (
-        <button type="button" className="link-btn" onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort, showConflicts: filters.showConflicts })}>
+        <button
+          type="button"
+          className="link-btn"
+          onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort, showConflicts: filters.showConflicts })}
+        >
           Clear
         </button>
       )}

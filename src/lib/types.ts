@@ -58,6 +58,9 @@ export interface Shift extends Interval {
 export type HoursType = 'fixed' | 'choose' | 'variable';
 
 export interface Job {
+  employerId?: string;
+  publication?: import('./employer').JobState;
+  businessDescription?: string;
   id: string;
   role: string;
   business: string;

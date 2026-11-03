@@ -1,4 +1,5 @@
 import { STATE_RANK, isConflict } from './matching';
+import { optionalMinutes } from './shiftRules';
 import { formatDayList, formatRange } from './time';
 import type { Category, Day, Job, Match } from './types';
 
@@ -11,10 +12,20 @@ export function jobHours(job: Job): { min: number; max: number; label: string } 
     return { min, max, label: `${min}–${max} hrs/wk` };
   }
   if (job.hoursType === 'choose') {
-    const lengths = job.shifts.map((s) => s.end - s.start).sort((a, b) => a - b);
-    const min = hrs(lengths.slice(0, job.minShifts ?? 1).reduce((a, b) => a + b, 0));
-    const max = hrs(lengths.reduce((a, b) => a + b, 0));
-    return { min, max, label: `${min}–${max} hrs/wk` };
+    const required = job.shifts.filter((s) => s.required);
+    const fixed = required.reduce((sum, s) => sum + s.end - s.start, 0);
+    const range = optionalMinutes(
+      job.shifts.filter((s) => !s.required),
+      required,
+      job.minShifts ?? 0,
+    );
+    const min = hrs(fixed + (Number.isFinite(range.min) ? range.min : 0));
+    const max = hrs(fixed + range.max);
+    return {
+      min,
+      max,
+      label: job.minShifts == null || !Number.isFinite(range.min) ? `Up to ${max} hrs/wk · minimum to confirm` : `${min}–${max} hrs/wk`,
+    };
   }
   const req = hrs(job.shifts.filter((s) => s.required).reduce((a, s) => a + (s.end - s.start), 0));
   if (job.pendingShift) return { min: req, max: req + 4, label: `${req}+ hrs/wk` };
@@ -22,6 +33,7 @@ export function jobHours(job: Job): { min: number; max: number; label: string } 
 }
 
 export function payLabel(job: Job): string {
+  if (!Number.isFinite(job.pay.min)) return 'Pay to confirm';
   const f = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
   return job.pay.max ? `${f(job.pay.min)}–${f(job.pay.max).slice(1)}/hr` : `${f(job.pay.min)}/hr`;
 }

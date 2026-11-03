@@ -22,7 +22,7 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
   const [applying, setApplying] = useState(false);
   const match = matches[job.id];
   const tone = STATE_META[match.state].tone;
-  const application = state.applications.find((a) => a.jobId === job.id && a.status !== 'closed');
+  const application = state.applications.find((a) => a.source === 'browser' && a.jobId === job.id && a.status !== 'closed');
   const { profile } = state;
   const area = areaById(profile.areaId);
   const checks = [...match.checks].sort((a, b) => Number(b.shift.required) - Number(a.shift.required) || a.shift.day - b.shift.day);
@@ -41,7 +41,8 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
             {job.role}
           </h2>
           <p className="jd-loc">
-            <MapPin size={16} aria-hidden="true" /> {job.area} · about {jobDistance(job, area.id)} mi from {area.short} · Posted {job.postedDaysAgo} day{job.postedDaysAgo === 1 ? '' : 's'} ago
+            <MapPin size={16} aria-hidden="true" /> {job.area} · about {jobDistance(job, area.id)} mi from {area.short} · Posted {job.postedDaysAgo}{' '}
+            day{job.postedDaysAgo === 1 ? '' : 's'} ago
           </p>
         </div>
         <div className="jd-actions">
@@ -141,8 +142,8 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
         </div>
         <footer className="fit-foot">
           <p>
-            <Info size={16} aria-hidden="true" /> Compatibility is a schedule check. It doesn’t guarantee you’ll be hired, how long travel takes, or that you’re
-            eligible to work.
+            <Info size={16} aria-hidden="true" /> Compatibility is a schedule check. It doesn’t guarantee you’ll be hired, how long travel takes, or
+            that you’re eligible to work.
           </p>
           <a className="btn btn-quiet btn-sm" href={href('/schedule')}>
             <Pencil size={16} aria-hidden="true" /> Edit my schedule
@@ -190,6 +191,12 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
 
       <p className="demo-foot">Fictional opening created for this demo. It is not a live vacancy or an employer commitment.</p>
 
+      {job.businessDescription && (
+        <section className="jd-section">
+          <h3>About {job.business}</h3>
+          <p>{job.businessDescription}</p>
+        </section>
+      )}
       {applying && <ApplyDialog job={job} onClose={() => setApplying(false)} />}
     </article>
   );
