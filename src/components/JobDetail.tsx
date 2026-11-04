@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleAlert, CircleQuestionMark, Info, MapPin, Pencil, Send, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CircleAlert, CircleQuestionMark, Info, MapPin, Pencil, Send, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { areaById } from '../data/areas';
 import { ageNotices } from '../lib/eligibility';
@@ -8,6 +8,7 @@ import { href } from '../lib/router';
 import { DAY_LONG, formatRange } from '../lib/time';
 import type { Job } from '../lib/types';
 import { useStore } from '../state/store';
+import { datedClashes, describeClash } from '../lib/upcoming';
 import { ApplyDialog } from './ApplyDialog';
 import { SaveButton } from './JobCard';
 import { MiniWeek } from './MiniWeek';
@@ -25,6 +26,7 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
   const application = state.applications.find((a) => a.source === 'browser' && a.jobId === job.id && a.status !== 'closed');
   const { profile } = state;
   const area = areaById(profile.areaId);
+  const clashes = datedClashes(job, state.schedule);
   const checks = [...match.checks].sort((a, b) => Number(b.shift.required) - Number(a.shift.required) || a.shift.day - b.shift.day);
 
   return (
@@ -140,6 +142,20 @@ export function JobDetail({ job, onBack }: { job: Job; onBack?: () => void }) {
             )}
           </ul>
         </div>
+        {clashes.length > 0 && (
+          <div className="dated-clashes" role="note">
+            <h4>
+              <CalendarClock size={18} aria-hidden="true" /> Dates to arrange
+            </h4>
+            <ul>
+              {clashes.slice(0, 5).map((c) => (
+                <li key={`${c.item.id}-${c.shift.id}`}>{describeClash(c)}</li>
+              ))}
+              {clashes.length > 5 && <li>And {clashes.length - 5} more.</li>}
+            </ul>
+            <p>Your usual week still {match.state === 'fits' ? 'fits' : 'decides the match above'}. Ask the employer about these dates before you rely on the job.</p>
+          </div>
+        )}
         <footer className="fit-foot">
           <p>
             <Info size={16} aria-hidden="true" /> Compatibility is a schedule check. It doesn’t guarantee you’ll be hired, how long travel takes, or

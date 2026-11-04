@@ -121,6 +121,15 @@ Rules live in `src/lib/matching.ts` and are deliberately simple enough to explai
 
 There are no percentage scores. Compatibility is shown as a schedule check, not a guarantee of hiring, travel time or legal eligibility. A randomised test checks that every per-shift explanation agrees with the availability windows shown to employers.
 
+### Dated commitments ("Coming up")
+
+On **My Schedule**, the **Coming up** card holds things tied to dates instead of the usual week: an exam day, a trip, an appointment, or a class or activity that repeats weekly between two dates (for example next term's classes). Rules live in `src/lib/upcoming.ts`:
+
+- They never change a job's weekly match. A job can still fit your usual week.
+- Any shift that lands on one of those dates in the next 180 days is listed under **Dates to arrange** on the job, counted on the job card, and mentioned before you apply.
+- Future classes get the commute buffer, like current ones. Other kinds don't.
+- They stay private: the employer's application snapshot never includes them. Students can mention dates in their note if they choose.
+
 ## Real vs. simulated
 
 - **Real:** reading uploaded schedules (when an API key is set, always confirmed by the student), schedule editing, commute buffer, compatibility logic and explanations, filters and distances, saved jobs, and the application review screen. State is kept in this browser's local storage.

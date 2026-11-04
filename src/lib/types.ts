@@ -21,8 +21,39 @@ export interface ScheduleBlock extends Interval {
   detail?: string;
 }
 
+/**
+ * exam     – an exam, test or deadline day
+ * event    – an appointment or one-off event
+ * away     – time away: a trip, holiday or family visit
+ * class    – a future class (e.g. next term); the commute buffer applies
+ * activity – a future practice, club, volunteering or other job
+ */
+export type DatedKind = 'exam' | 'event' | 'away' | 'class' | 'activity';
+
+/**
+ * A commitment tied to dates rather than the regular week: a one-off day, a
+ * stretch of days, or something that repeats weekly between two dates.
+ * Private to the student; never shared with employers.
+ */
+export interface DatedItem {
+  id: string;
+  kind: DatedKind;
+  title: string;
+  /** ISO dates (yyyy-mm-dd), inclusive. */
+  startDate: string;
+  endDate: string;
+  /** 'once' covers every day from startDate to endDate; 'weekly' only the chosen days. */
+  repeat: 'once' | 'weekly';
+  days: Day[];
+  allDay: boolean;
+  start: Minutes;
+  end: Minutes;
+}
+
 export interface Schedule {
   blocks: ScheduleBlock[];
+  /** Dated commitments (exams, trips, next term's classes). Older saves may not have it. */
+  upcoming?: DatedItem[];
   /** Travel time needed between a class and a work shift, in minutes. */
   bufferMinutes: number;
   termName: string;

@@ -1,8 +1,9 @@
-import { Bookmark, BookmarkCheck, Clock, MapPin } from 'lucide-react';
+import { Bookmark, BookmarkCheck, CalendarClock, Clock, MapPin } from 'lucide-react';
 import { jobHours, payLabel, shiftSummary } from '../lib/jobs';
 import { href } from '../lib/router';
 import type { Job, Match } from '../lib/types';
 import { useStore } from '../state/store';
+import { clashDateCount, datedClashes } from '../lib/upcoming';
 import { STATE_META, StatusBadge } from './ui';
 
 export function SaveButton({ job, withLabel = false }: { job: Job; withLabel?: boolean }) {
@@ -24,7 +25,9 @@ export function SaveButton({ job, withLabel = false }: { job: Job; withLabel?: b
 }
 
 export function JobCard({ job, match, distance, selected, changed }: { job: Job; match: Match; distance: number; selected: boolean; changed: boolean }) {
+  const { state } = useStore();
   const tone = STATE_META[match.state].tone;
+  const toArrange = clashDateCount(datedClashes(job, state.schedule));
   return (
     <article className={`job-card${selected ? ' is-selected' : ''}${changed ? ' is-changed' : ''}`}>
       <div className="job-card-top">
@@ -51,6 +54,11 @@ export function JobCard({ job, match, distance, selected, changed }: { job: Job;
         <Clock size={15} aria-hidden="true" /> {shiftSummary(job)}
       </p>
       <p className={`job-card-why tone-text-${tone}`}>{match.summary}</p>
+      {toArrange > 0 && (
+        <p className="job-card-dated tone-text-confirm">
+          <CalendarClock size={15} aria-hidden="true" /> {toArrange} upcoming shift date{toArrange === 1 ? '' : 's'} to arrange
+        </p>
+      )}
     </article>
   );
 }

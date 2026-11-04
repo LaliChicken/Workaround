@@ -1,6 +1,7 @@
-import { ArrowRight, CalendarClock, CalendarDays, Eye, LayoutGrid, List, Lock, Pencil, Plus, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CalendarClock, CalendarPlus, CalendarDays, Eye, LayoutGrid, List, Lock, Pencil, Plus, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BlockEditor, type EditorTarget } from '../components/BlockEditor';
+import { UpcomingEditor } from '../components/UpcomingEditor';
 import { AvailabilityDialog } from '../components/AvailabilityPicker';
 import { ImportDialog, type ImportResult } from '../components/ImportDialog';
 import { Dialog, STATE_META } from '../components/ui';
@@ -8,7 +9,8 @@ import { KIND_META, Legend, WeekGrid, blockLabel } from '../components/WeekGrid'
 import { isConflict, weeklyWindows, workableMinutes, workableWindows } from '../lib/matching';
 import { href, useMediaQuery } from '../lib/router';
 import { DAYS, DAY_LONG, DAY_SHORT, formatDate, formatHours, formatRange } from '../lib/time';
-import type { MatchState, Schedule, ScheduleBlock } from '../lib/types';
+import type { DatedItem, Job, MatchState, Schedule, ScheduleBlock } from '../lib/types';
+import { clashDateCount, datedClashes, describeWhen, isPast, isoToday } from '../lib/upcoming';
 import { useStore } from '../state/store';
 
 const BUFFERS = [0, 15, 30, 45, 60];
@@ -23,6 +25,7 @@ export function ScheduleView() {
   const [importing, setImporting] = useState(false);
   const [settingAvailability, setSettingAvailability] = useState(false);
   const [editingTerm, setEditingTerm] = useState(false);
+  const [dated, setDated] = useState<{ item: DatedItem | null; key: number } | null>(null);
 
   useEffect(() => {
     document.title = 'My Schedule · Workaround';
@@ -99,6 +102,11 @@ export function ScheduleView() {
 
         <aside className="schedule-side">
           <BufferCard schedule={schedule} onChange={(minutes) => changeSchedule({ ...schedule, bufferMinutes: minutes }, `Commute buffer set to ${minutes} minutes`)} />
+          <UpcomingCard
+            schedule={schedule}
+            jobs={state.jobs.filter((j) => j.publication === 'published')}
+            onOpen={(item) => setDated({ item, key: Date.now() })}
+          />
           <MatchCountCard matches={state.jobs.filter(j => j.publication === 'published').map(j => matches[j.id].state)} />
           <EmployerViewCard schedule={schedule} onSetAvailability={() => setSettingAvailability(true)} />
         </aside>
@@ -125,8 +133,65 @@ export function ScheduleView() {
           }}
         />
       )}
+      {dated && <UpcomingEditor key={dated.key} item={dated.item} onClose={() => setDated(null)} />}
       {editingTerm && <TermDialog schedule={schedule} onClose={() => setEditingTerm(false)} />}
     </div>
+  );
+}
+
+function UpcomingCard({ schedule, jobs, onOpen }: { schedule: Schedule; jobs: Job[]; onOpen: (item: DatedItem | null) => void }) {
+  const [showPast, setShowPast] = useState(false);
+  const today = isoToday();
+  const items = [...(schedule.upcoming ?? [])].sort((a, b) => a.startDate.localeCompare(b.startDate) || a.start - b.start);
+  const past = items.filter((i) => isPast(i, today));
+  const shown = showPast ? items : items.filter((i) => !isPast(i, today));
+  const impact = (item: DatedItem) => {
+    const one: Schedule = { ...schedule, upcoming: [item] };
+    const hit = jobs.map((j) => clashDateCount(datedClashes(j, one, today))).filter((n) => n > 0);
+    return hit.length;
+  };
+  return (
+    <section className="card side-card" aria-labelledby="upcoming-title">
+      <h2 className="card-title" id="upcoming-title">
+        <CalendarPlus size={18} aria-hidden="true" /> Coming up
+      </h2>
+      <p className="card-text">Exams, trips and classes that start later. Your usual week stays the same; jobs flag shifts that land on these dates.</p>
+      {shown.length ? (
+        <ul className="upcoming-list">
+          {shown.map((item) => {
+            const n = isPast(item, today) ? 0 : impact(item);
+            return (
+              <li key={item.id} className={`upcoming-item${isPast(item, today) ? ' is-past' : ''}`}>
+                <span className={`dated-swatch dated-swatch-${item.kind}`} aria-hidden="true" />
+                <div>
+                  <p className="upcoming-title">{item.title}</p>
+                  <p className="upcoming-when">{describeWhen(item)}</p>
+                  {n > 0 && (
+                    <p className="upcoming-impact tone-text-confirm">
+                      <AlertTriangle size={14} aria-hidden="true" /> Lands on shifts in {n} job{n === 1 ? '' : 's'}
+                    </p>
+                  )}
+                  {isPast(item, today) && <p className="upcoming-when">Past</p>}
+                </div>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => onOpen(item)} aria-label={`Edit ${item.title}`}>
+                  <Pencil size={15} aria-hidden="true" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="upcoming-empty">Nothing dated yet.</p>
+      )}
+      {past.length > 0 && (
+        <button type="button" className="link-btn upcoming-past-toggle" onClick={() => setShowPast((v) => !v)}>
+          {showPast ? 'Hide past dates' : `Show ${past.length} past date${past.length === 1 ? '' : 's'}`}
+        </button>
+      )}
+      <button type="button" className="btn btn-secondary btn-block" onClick={() => onOpen(null)}>
+        <Plus size={18} aria-hidden="true" /> Add a date
+      </button>
+    </section>
   );
 }
 

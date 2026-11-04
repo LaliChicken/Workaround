@@ -7,6 +7,7 @@ import { sampleSchedule } from '../data/sampleSchedule';
 import { DEFAULT_FILTERS, type JobFilters } from '../lib/jobs';
 import { evaluateAll, weeklyWindows } from '../lib/matching';
 import { DAY_SHORT, formatRange } from '../lib/time';
+import { normaliseUpcoming } from '../lib/upcoming';
 import type { AgeBand, Category, Match, MatchState, Schedule, StudentStage } from '../lib/types';
 
 export interface Profile {
@@ -211,6 +212,7 @@ export function normaliseState(saved: unknown): AppState {
     business: parsed.business ?? base.business,
     applications: [...applications, ...base.applications.filter((a) => !applications.some((old) => old.id === a.id))],
     profile: normaliseProfile(parsed.profile),
+    schedule: { ...parsed.schedule, upcoming: normaliseUpcoming(parsed.schedule?.upcoming) } as Schedule,
     filters: normaliseFilters(parsed.filters),
   };
 }
@@ -256,7 +258,7 @@ interface Store {
   toasts: Toast[];
   updateProfile: (patch: Partial<Profile>) => void;
   completeSetup: (schedule: Schedule) => void;
-  changeSchedule: (next: Schedule, message: string, opts?: { undoable?: boolean }) => void;
+  changeSchedule: (next: Schedule, message: string, opts?: { undoable?: boolean; body?: string }) => void;
   toggleSave: (jobId: string) => void;
   apply: (jobId: string, opts: { resumeAttached: boolean; note: string }) => Application;
   withdraw: (id: string) => void;
@@ -318,7 +320,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       notify({
         tone: 'info',
         title: message,
-        body: changes.length === 0 ? 'No job matches changed.' : undefined,
+        body: opts.body ?? (changes.length === 0 ? 'No job matches changed.' : undefined),
         changes,
         undo: opts.undoable === false ? undefined : prev,
       });

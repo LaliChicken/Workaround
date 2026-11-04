@@ -32,6 +32,7 @@ export function sampleSchedule(): Schedule {
     blocks: [...SAMPLE_CLASSES, ...SAMPLE_OTHER_BLOCKS].map((b) => ({ ...b })),
     bufferMinutes: 30,
     termName: 'Fall quarter 2026',
+    upcoming: [],
     termStart: '2026-09-21',
     termEnd: '2026-12-11',
   };

@@ -3477,3 +3477,26 @@ select.input-sm {
 .em-review-head p { margin:0; font-size:14px; }
 .em-review-head .badge { white-space:nowrap; }
 .em-review-detail { scroll-margin-top:84px; }
+
+/* Dated commitments ("Coming up") */
+.dated-kind-exam .kind-swatch, .dated-swatch-exam { background:var(--warn-soft); box-shadow:inset 4px 0 0 var(--warn-border); }
+.dated-kind-event .kind-swatch, .dated-swatch-event { background:var(--activity-bg); box-shadow:inset 4px 0 0 var(--activity-bar); }
+.dated-kind-away .kind-swatch, .dated-swatch-away { background:var(--study-bg); box-shadow:inset 4px 0 0 var(--study-bar); }
+.dated-kind-class .kind-swatch, .dated-swatch-class { background:var(--class-bg); box-shadow:inset 4px 0 0 var(--class-bar); }
+.dated-kind-activity .kind-swatch, .dated-swatch-activity { background:var(--activity-bg); box-shadow:inset 4px 0 0 var(--activity-bar); }
+.upcoming-list { list-style:none; margin:0 0 12px; padding:0; display:grid; gap:8px; }
+.upcoming-item { display:grid; grid-template-columns:16px minmax(0,1fr) auto; gap:10px; align-items:start; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+.upcoming-item .dated-swatch { width:16px; height:16px; border-radius:4px; margin-top:3px; }
+.upcoming-item p { margin:0; }
+.upcoming-title { font-weight:650; overflow-wrap:anywhere; }
+.upcoming-when { font-size:13px; color:var(--text-2); }
+.upcoming-impact { font-size:12px; margin-top:4px !important; display:flex; gap:5px; align-items:flex-start; }
+.upcoming-impact svg { flex:none; margin-top:1px; }
+.upcoming-item.is-past { opacity:.65; }
+.upcoming-empty { font-size:14px; color:var(--text-2); margin:0 0 12px; }
+.dated-clashes { margin:14px 0 0; padding:12px 14px; border:1px solid var(--warn-border); background:var(--warn-soft); border-radius:10px; color:var(--warn-text); }
+.dated-clashes h4 { display:flex; align-items:center; gap:8px; margin:0 0 6px; font-size:15px; }
+.dated-clashes ul { margin:0; padding-left:20px; display:grid; gap:4px; font-size:14px; }
+.dated-clashes p { margin:8px 0 0; font-size:13px; }
+.job-card-dated { display:flex; align-items:center; gap:6px; font-size:13px; margin:6px 0 0; }
+@media(max-width:640px) { .dated-kinds { grid-template-columns:1fr 1fr; } .dated-kinds .kind-hint { display:none; } }

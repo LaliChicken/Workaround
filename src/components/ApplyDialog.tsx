@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, FileText, FlaskConical, Lock, Send } from 'lucide-react';
+import { CalendarClock, CircleAlert, CircleCheck, FileText, FlaskConical, Lock, Send } from 'lucide-react';
 import { useId, useState } from 'react';
 import { href, navigate } from '../lib/router';
 import { studentSummary } from '../lib/eligibility';
@@ -6,6 +6,8 @@ import { isConflict } from '../lib/matching';
 import type { Job } from '../lib/types';
 import { sharedAvailability, useStore } from '../state/store';
 import { Dialog, StatusBadge } from './ui';
+import { datedClashes } from '../lib/upcoming';
+import { formatDate } from '../lib/time';
 
 /** Simulated application: shows exactly what would be shared, sends nothing. */
 export function ApplyDialog({ job, onClose }: { job: Job; onClose: () => void }) {
@@ -17,6 +19,7 @@ export function ApplyDialog({ job, onClose }: { job: Job; onClose: () => void })
   const [note, setNote] = useState('');
   const uid = useId();
   const windows = sharedAvailability(schedule);
+  const clashDates = [...new Set(datedClashes(job, schedule).flatMap((c) => c.dates))].sort();
   const resumeRequired = job.resume === 'required';
   const blocked = resumeRequired && (!profile.resumeName || !attach);
 
@@ -101,6 +104,26 @@ export function ApplyDialog({ job, onClose }: { job: Job; onClose: () => void })
             <StatusBadge state={match.state} size="sm" />
             <p>{match.summary}</p>
             <p className="muted">You can still apply. Consider explaining your availability in the note.</p>
+          </div>
+        </div>
+      )}
+
+      {clashDates.length > 0 && (
+        <div className="callout callout-warn">
+          <CalendarClock size={18} aria-hidden="true" />
+          <div>
+            <p>
+              <strong>
+                {clashDates.length} upcoming shift date{clashDates.length === 1 ? '' : 's'} clash
+                {clashDates.length === 1 ? 'es' : ''} with your dates:
+              </strong>{' '}
+              {clashDates
+                .slice(0, 4)
+                .map((d) => formatDate(d, { weekday: 'short', month: 'short', day: 'numeric' }))
+                .join(', ')}
+              {clashDates.length > 4 ? ` and ${clashDates.length - 4} more` : ''}.
+            </p>
+            <p className="muted">These dates aren’t shared. Mention them in your note if you’d like the employer to know.</p>
           </div>
         </div>
       )}
